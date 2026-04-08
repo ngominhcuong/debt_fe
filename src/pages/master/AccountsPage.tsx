@@ -75,18 +75,24 @@ export default function AccountsPage() {
         key: "actions",
         header: "Thao tác",
         render: (item) => (
-          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/accounts/${item.id}`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/accounts/${item.id}`);
+              }}
             >
               Chi tiết
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/accounts/${item.id}/edit`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/accounts/${item.id}/edit`);
+              }}
             >
               Chỉnh sửa
             </Button>

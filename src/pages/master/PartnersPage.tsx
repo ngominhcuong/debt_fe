@@ -62,18 +62,24 @@ export default function PartnersPage() {
         key: "actions",
         header: "Thao tác",
         render: (item) => (
-          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/partners/${item.id}`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/partners/${item.id}`);
+              }}
             >
               Chi tiết
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/partners/${item.id}/edit`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/partners/${item.id}/edit`);
+              }}
             >
               Chỉnh sửa
             </Button>

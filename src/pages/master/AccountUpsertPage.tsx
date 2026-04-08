@@ -157,6 +157,14 @@ export default function AccountUpsertPage() {
     return <PageDataLoading variant="form" />;
   }
 
+  let submitLabel = "Tạo mới";
+  if (isEdit) {
+    submitLabel = "Lưu thay đổi";
+  }
+  if (submitting) {
+    submitLabel = "Đang lưu...";
+  }
+
   return (
     <form onSubmit={onSubmit} className="max-w-4xl space-y-4">
       <Card>
@@ -327,7 +335,7 @@ export default function AccountUpsertPage() {
               Hủy
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo mới"}
+              {submitLabel}
             </Button>
           </div>
         </CardContent>

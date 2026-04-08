@@ -168,6 +168,14 @@ export default function PartnerUpsertPage() {
     return <PageDataLoading variant="form" />;
   }
 
+  let submitLabel = "Tạo mới";
+  if (isEdit) {
+    submitLabel = "Lưu thay đổi";
+  }
+  if (submitting) {
+    submitLabel = "Đang lưu...";
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-5xl">
       <Card>
@@ -332,7 +340,7 @@ export default function PartnerUpsertPage() {
           Hủy
         </Button>
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo mới"}
+          {submitLabel}
         </Button>
       </div>
     </form>
