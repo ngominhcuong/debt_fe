@@ -43,7 +43,11 @@ export default function PartnerDetailPage() {
         const res = await api.master.getPartner(id, accessToken);
         setPartner(res.data);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được chi tiết đối tác");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được chi tiết đối tác",
+        );
       } finally {
         setLoading(false);
       }
@@ -57,7 +61,9 @@ export default function PartnerDetailPage() {
   }
 
   if (!partner) {
-    return <p className="text-sm text-muted-foreground">Không có dữ liệu đối tác.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">Không có dữ liệu đối tác.</p>
+    );
   }
 
   return (
@@ -66,7 +72,9 @@ export default function PartnerDetailPage() {
         <Button variant="outline" onClick={() => navigate("/partners")}>
           Quay lại
         </Button>
-        <Button onClick={() => navigate(`/partners/${partner.id}/edit`)}>Chỉnh sửa</Button>
+        <Button onClick={() => navigate(`/partners/${partner.id}/edit`)}>
+          Chỉnh sửa
+        </Button>
       </div>
       <Card>
         <CardHeader className="pb-4">
@@ -74,14 +82,28 @@ export default function PartnerDetailPage() {
           <CardDescription>Mã đối tác: {partner.code}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InfoRow label="Loại" value={PARTNER_TYPE_LABEL[partner.partnerType] ?? partner.partnerType} />
+          <InfoRow
+            label="Loại"
+            value={
+              PARTNER_TYPE_LABEL[partner.partnerType] ?? partner.partnerType
+            }
+          />
           <InfoRow label="MST" value={partner.taxCode ?? "-"} />
           <InfoRow label="Điện thoại" value={partner.phone ?? "-"} />
           <InfoRow label="Email" value={partner.email ?? "-"} />
           <InfoRow label="Địa chỉ" value={partner.address ?? "-"} />
-          <InfoRow label="Hạn thanh toán (ngày)" value={String(partner.paymentTermDays ?? "-")} />
-          <InfoRow label="Hạn mức công nợ" value={formatCurrencyVnd(partner.creditLimit)} />
-          <InfoRow label="Nhắc nợ email" value={partner.debtReminderOn ? "Bật" : "Tắt"} />
+          <InfoRow
+            label="Hạn thanh toán (ngày)"
+            value={String(partner.paymentTermDays ?? "-")}
+          />
+          <InfoRow
+            label="Hạn mức công nợ"
+            value={formatCurrencyVnd(partner.creditLimit)}
+          />
+          <InfoRow
+            label="Nhắc nợ email"
+            value={partner.debtReminderOn ? "Bật" : "Tắt"}
+          />
           <InfoRow label="Email nhắc nợ" value={partner.reminderEmail ?? "-"} />
         </CardContent>
       </Card>

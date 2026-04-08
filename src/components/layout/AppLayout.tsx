@@ -95,11 +95,20 @@ export default function AppLayout() {
   const pageMeta =
     pageMetaByPath[location.pathname] ??
     (location.pathname.startsWith("/partners/")
-      ? ({ title: "Quản lý Đối tác", subtitle: "Chi tiết và cập nhật đối tác" } as const)
+      ? ({
+          title: "Quản lý Đối tác",
+          subtitle: "Chi tiết và cập nhật đối tác",
+        } as const)
       : location.pathname.startsWith("/items/")
-        ? ({ title: "Danh mục Mặt hàng", subtitle: "Chi tiết và cập nhật mặt hàng" } as const)
+        ? ({
+            title: "Danh mục Mặt hàng",
+            subtitle: "Chi tiết và cập nhật mặt hàng",
+          } as const)
         : location.pathname.startsWith("/accounts/")
-          ? ({ title: "Danh mục Tài khoản Kế toán", subtitle: "Chi tiết và cập nhật tài khoản" } as const)
+          ? ({
+              title: "Danh mục Tài khoản Kế toán",
+              subtitle: "Chi tiết và cập nhật tài khoản",
+            } as const)
           : ({ title: "DebtFlow", subtitle: "Quản lý công nợ" } as const));
 
   return (

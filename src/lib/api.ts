@@ -258,7 +258,11 @@ export const api = {
       }
 
       const suffix = query.toString() ? `?${query.toString()}` : "";
-      return request<Partner[]>(`/api/master/partners${suffix}`, {}, accessToken);
+      return request<Partner[]>(
+        `/api/master/partners${suffix}`,
+        {},
+        accessToken,
+      );
     },
     getPartner: (id: string, accessToken: string) =>
       request<Partner>(`/api/master/partners/${id}`, {}, accessToken),
@@ -301,11 +305,7 @@ export const api = {
         { method: "POST", body: JSON.stringify(body) },
         accessToken,
       ),
-    updateItem: (
-      id: string,
-      body: Partial<ItemPayload>,
-      accessToken: string,
-    ) =>
+    updateItem: (id: string, body: Partial<ItemPayload>, accessToken: string) =>
       request<Item>(
         `/api/master/items/${id}`,
         { method: "PATCH", body: JSON.stringify(body) },
@@ -324,7 +324,11 @@ export const api = {
       }
 
       const suffix = query.toString() ? `?${query.toString()}` : "";
-      return request<Account[]>(`/api/master/accounts${suffix}`, {}, accessToken);
+      return request<Account[]>(
+        `/api/master/accounts${suffix}`,
+        {},
+        accessToken,
+      );
     },
     getAccount: (id: string, accessToken: string) =>
       request<Account>(`/api/master/accounts/${id}`, {}, accessToken),

@@ -28,7 +28,9 @@ export default function PartnersPage() {
         setPartners(res.data);
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "Không thể tải danh sách đối tác",
+          error instanceof Error
+            ? error.message
+            : "Không thể tải danh sách đối tác",
         );
       } finally {
         setLoading(false);
@@ -45,7 +47,8 @@ export default function PartnersPage() {
       {
         key: "partnerType",
         header: "Loại",
-        render: (item) => PARTNER_TYPE_LABEL[item.partnerType] ?? item.partnerType,
+        render: (item) =>
+          PARTNER_TYPE_LABEL[item.partnerType] ?? item.partnerType,
       },
       { key: "taxCode", header: "Mã số thuế" },
       { key: "phone", header: "Điện thoại" },

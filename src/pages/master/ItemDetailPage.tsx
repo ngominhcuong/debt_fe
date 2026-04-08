@@ -43,7 +43,11 @@ export default function ItemDetailPage() {
         const res = await api.master.getItem(id, accessToken);
         setItem(res.data);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được chi tiết mặt hàng");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được chi tiết mặt hàng",
+        );
       } finally {
         setLoading(false);
       }
@@ -57,14 +61,22 @@ export default function ItemDetailPage() {
   }
 
   if (!item) {
-    return <p className="text-sm text-muted-foreground">Không có dữ liệu mặt hàng.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        Không có dữ liệu mặt hàng.
+      </p>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => navigate("/items")}>Quay lại</Button>
-        <Button onClick={() => navigate(`/items/${item.id}/edit`)}>Chỉnh sửa</Button>
+        <Button variant="outline" onClick={() => navigate("/items")}>
+          Quay lại
+        </Button>
+        <Button onClick={() => navigate(`/items/${item.id}/edit`)}>
+          Chỉnh sửa
+        </Button>
       </div>
       <Card>
         <CardHeader className="pb-4">
@@ -72,15 +84,45 @@ export default function ItemDetailPage() {
           <CardDescription>Mã hàng: {item.sku}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InfoRow label="Loại" value={ITEM_TYPE_LABEL[item.itemType] ?? item.itemType} />
+          <InfoRow
+            label="Loại"
+            value={ITEM_TYPE_LABEL[item.itemType] ?? item.itemType}
+          />
           <InfoRow label="DVT" value={item.unit} />
           <InfoRow label="Giá bán" value={formatCurrencyVnd(item.salePrice)} />
-          <InfoRow label="Giá mua" value={formatCurrencyVnd(item.purchasePrice)} />
+          <InfoRow
+            label="Giá mua"
+            value={formatCurrencyVnd(item.purchasePrice)}
+          />
           <InfoRow label="VAT (%)" value={item.vatRate ?? "-"} />
-          <InfoRow label="TK doanh thu" value={item.revenueAccount ? `${item.revenueAccount.code} - ${item.revenueAccount.name}` : "-"} />
-          <InfoRow label="TK giá vốn" value={item.cogsAccount ? `${item.cogsAccount.code} - ${item.cogsAccount.name}` : "-"} />
-          <InfoRow label="TK tồn kho" value={item.inventoryAccount ? `${item.inventoryAccount.code} - ${item.inventoryAccount.name}` : "-"} />
-          <InfoRow label="Theo dõi tồn" value={item.isTrackedInventory ? "Có" : "Không"} />
+          <InfoRow
+            label="TK doanh thu"
+            value={
+              item.revenueAccount
+                ? `${item.revenueAccount.code} - ${item.revenueAccount.name}`
+                : "-"
+            }
+          />
+          <InfoRow
+            label="TK giá vốn"
+            value={
+              item.cogsAccount
+                ? `${item.cogsAccount.code} - ${item.cogsAccount.name}`
+                : "-"
+            }
+          />
+          <InfoRow
+            label="TK tồn kho"
+            value={
+              item.inventoryAccount
+                ? `${item.inventoryAccount.code} - ${item.inventoryAccount.name}`
+                : "-"
+            }
+          />
+          <InfoRow
+            label="Theo dõi tồn"
+            value={item.isTrackedInventory ? "Có" : "Không"}
+          />
         </CardContent>
       </Card>
     </div>

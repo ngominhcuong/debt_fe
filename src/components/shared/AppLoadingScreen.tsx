@@ -16,7 +16,9 @@ export default function AppLoadingScreen({
           <Building2 size={24} className="text-primary-foreground" />
         </div>
         <p className="text-sm font-medium text-foreground">{message}</p>
-        {subMessage && <p className="text-xs text-muted-foreground mt-1">{subMessage}</p>}
+        {subMessage && (
+          <p className="text-xs text-muted-foreground mt-1">{subMessage}</p>
+        )}
       </div>
     </div>
   );

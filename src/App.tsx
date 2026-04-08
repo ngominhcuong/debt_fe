@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -108,16 +114,25 @@ const App = () => (
                 <Route path="/partners" element={<PartnersPage />} />
                 <Route path="/partners/new" element={<PartnerUpsertPage />} />
                 <Route path="/partners/:id" element={<PartnerDetailPage />} />
-                <Route path="/partners/:id/edit" element={<PartnerUpsertPage />} />
+                <Route
+                  path="/partners/:id/edit"
+                  element={<PartnerUpsertPage />}
+                />
                 <Route path="/items" element={<ItemsPage />} />
                 <Route path="/items/new" element={<ItemUpsertPage />} />
                 <Route path="/items/:id" element={<ItemDetailPage />} />
                 <Route path="/items/:id/edit" element={<ItemUpsertPage />} />
-                <Route path="/opening-balance" element={<OpeningBalancePage />} />
+                <Route
+                  path="/opening-balance"
+                  element={<OpeningBalancePage />}
+                />
                 <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/accounts/new" element={<AccountUpsertPage />} />
                 <Route path="/accounts/:id" element={<AccountDetailPage />} />
-                <Route path="/accounts/:id/edit" element={<AccountUpsertPage />} />
+                <Route
+                  path="/accounts/:id/edit"
+                  element={<AccountUpsertPage />}
+                />
                 <Route path="/ar/contracts" element={<ARContractsPage />} />
                 <Route path="/ar/invoices" element={<ARInvoicesPage />} />
                 <Route path="/ar/receipts" element={<ARReceiptsPage />} />

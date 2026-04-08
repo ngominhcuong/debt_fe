@@ -74,7 +74,9 @@ export default function ItemUpsertPage() {
     const run = async () => {
       setLoading(true);
       try {
-        const accountRes = await api.master.listAccounts(accessToken, { isActive: true });
+        const accountRes = await api.master.listAccounts(accessToken, {
+          isActive: true,
+        });
         setAccounts(accountRes.data);
 
         if (isEdit && id) {
@@ -97,7 +99,11 @@ export default function ItemUpsertPage() {
           });
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được dữ liệu mặt hàng");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được dữ liệu mặt hàng",
+        );
       } finally {
         setLoading(false);
       }
@@ -112,7 +118,9 @@ export default function ItemUpsertPage() {
       itemType: form.itemType,
       unit: form.unit.trim(),
       salePrice: form.salePrice ? Number(form.salePrice) : undefined,
-      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      purchasePrice: form.purchasePrice
+        ? Number(form.purchasePrice)
+        : undefined,
       vatRate: form.vatRate ? Number(form.vatRate) : undefined,
       revenueAccountId: form.revenueAccountId || null,
       cogsAccountId: form.cogsAccountId || null,
@@ -149,7 +157,9 @@ export default function ItemUpsertPage() {
         navigate(`/items/${created.data.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không lưu được mặt hàng");
+      toast.error(
+        error instanceof Error ? error.message : "Không lưu được mặt hàng",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -159,9 +169,15 @@ export default function ItemUpsertPage() {
     return <PageDataLoading variant="form" />;
   }
 
-  const revenueAccounts = accounts.filter((account) => account.accountType === "REVENUE");
-  const cogsAccounts = accounts.filter((account) => account.accountType === "EXPENSE");
-  const inventoryAccounts = accounts.filter((account) => account.accountType === "ASSET");
+  const revenueAccounts = accounts.filter(
+    (account) => account.accountType === "REVENUE",
+  );
+  const cogsAccounts = accounts.filter(
+    (account) => account.accountType === "EXPENSE",
+  );
+  const inventoryAccounts = accounts.filter(
+    (account) => account.accountType === "ASSET",
+  );
 
   return (
     <form onSubmit={onSubmit} className="space-y-6 max-w-5xl">
@@ -188,7 +204,9 @@ export default function ItemUpsertPage() {
               <Label>Tên mặt hàng</Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
                 required
               />
             </div>
@@ -197,7 +215,10 @@ export default function ItemUpsertPage() {
               <Select
                 value={form.itemType}
                 onValueChange={(value) =>
-                  setForm((p) => ({ ...p, itemType: value as FormState["itemType"] }))
+                  setForm((p) => ({
+                    ...p,
+                    itemType: value as FormState["itemType"],
+                  }))
                 }
               >
                 <SelectTrigger>
@@ -215,7 +236,9 @@ export default function ItemUpsertPage() {
               <Label>Đơn vị tính</Label>
               <Input
                 value={form.unit}
-                onChange={(e) => setForm((p) => ({ ...p, unit: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, unit: e.target.value }))
+                }
                 required
               />
             </div>
@@ -225,7 +248,9 @@ export default function ItemUpsertPage() {
                 type="number"
                 min={0}
                 value={form.salePrice}
-                onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, salePrice: e.target.value }))
+                }
               />
             </div>
             <div>
@@ -246,7 +271,9 @@ export default function ItemUpsertPage() {
                 min={0}
                 max={100}
                 value={form.vatRate}
-                onChange={(e) => setForm((p) => ({ ...p, vatRate: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, vatRate: e.target.value }))
+                }
               />
             </div>
           </div>
@@ -330,7 +357,9 @@ export default function ItemUpsertPage() {
             <Label>Mô tả</Label>
             <Input
               value={form.description}
-              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, description: e.target.value }))
+              }
             />
           </div>
 

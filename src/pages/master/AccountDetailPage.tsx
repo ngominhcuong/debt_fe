@@ -42,7 +42,11 @@ export default function AccountDetailPage() {
         const res = await api.master.getAccount(id, accessToken);
         setAccount(res.data);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được chi tiết tài khoản");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được chi tiết tài khoản",
+        );
       } finally {
         setLoading(false);
       }
@@ -56,14 +60,22 @@ export default function AccountDetailPage() {
   }
 
   if (!account) {
-    return <p className="text-sm text-muted-foreground">Không có dữ liệu tài khoản.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        Không có dữ liệu tài khoản.
+      </p>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => navigate("/accounts")}>Quay lại</Button>
-        <Button onClick={() => navigate(`/accounts/${account.id}/edit`)}>Chỉnh sửa</Button>
+        <Button variant="outline" onClick={() => navigate("/accounts")}>
+          Quay lại
+        </Button>
+        <Button onClick={() => navigate(`/accounts/${account.id}/edit`)}>
+          Chỉnh sửa
+        </Button>
       </div>
       <Card>
         <CardHeader className="pb-4">
@@ -71,13 +83,40 @@ export default function AccountDetailPage() {
           <CardDescription>Số hiệu tài khoản: {account.code}</CardDescription>
         </CardHeader>
         <CardContent>
-          <InfoRow label="Tính chất" value={ACCOUNT_TYPE_LABEL[account.accountType] ?? account.accountType} />
-          <InfoRow label="Dư tính" value={NORMAL_BALANCE_LABEL[account.normalBalance] ?? account.normalBalance} />
+          <InfoRow
+            label="Tính chất"
+            value={
+              ACCOUNT_TYPE_LABEL[account.accountType] ?? account.accountType
+            }
+          />
+          <InfoRow
+            label="Dư tính"
+            value={
+              NORMAL_BALANCE_LABEL[account.normalBalance] ??
+              account.normalBalance
+            }
+          />
           <InfoRow label="Cấp" value={String(account.level)} />
-          <InfoRow label="Tài khoản cha" value={account.parent ? `${account.parent.code} - ${account.parent.name}` : "-"} />
-          <InfoRow label="Loại TK" value={account.isPosting ? "Chi tiết" : "Tổng hợp"} />
-          <InfoRow label="Nhập tay" value={account.allowManualEntry ? "Cho phép" : "Không"} />
-          <InfoRow label="Trạng thái" value={account.isActive ? "Đang hoạt động" : "Ngừng"} />
+          <InfoRow
+            label="Tài khoản cha"
+            value={
+              account.parent
+                ? `${account.parent.code} - ${account.parent.name}`
+                : "-"
+            }
+          />
+          <InfoRow
+            label="Loại TK"
+            value={account.isPosting ? "Chi tiết" : "Tổng hợp"}
+          />
+          <InfoRow
+            label="Nhập tay"
+            value={account.allowManualEntry ? "Cho phép" : "Không"}
+          />
+          <InfoRow
+            label="Trạng thái"
+            value={account.isActive ? "Đang hoạt động" : "Ngừng"}
+          />
         </CardContent>
       </Card>
     </div>

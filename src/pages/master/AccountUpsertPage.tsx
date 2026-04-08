@@ -26,7 +26,13 @@ import { Switch } from "@/components/ui/switch";
 interface FormState {
   code: string;
   name: string;
-  accountType: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE" | "OFF_BALANCE";
+  accountType:
+    | "ASSET"
+    | "LIABILITY"
+    | "EQUITY"
+    | "REVENUE"
+    | "EXPENSE"
+    | "OFF_BALANCE";
   normalBalance: "DEBIT" | "CREDIT";
   parentId: string;
   isPosting: boolean;
@@ -68,7 +74,9 @@ export default function AccountUpsertPage() {
     const run = async () => {
       setLoading(true);
       try {
-        const accountRes = await api.master.listAccounts(accessToken, { isActive: true });
+        const accountRes = await api.master.listAccounts(accessToken, {
+          isActive: true,
+        });
         setAccounts(accountRes.data);
 
         if (isEdit && id) {
@@ -88,7 +96,11 @@ export default function AccountUpsertPage() {
           });
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được dữ liệu tài khoản");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được dữ liệu tài khoản",
+        );
       } finally {
         setLoading(false);
       }
@@ -97,18 +109,21 @@ export default function AccountUpsertPage() {
     void run();
   }, [id, isEdit, session?.access_token]);
 
-  const payload = useMemo<AccountPayload>(() => ({
-    code: form.code.trim(),
-    name: form.name.trim(),
-    accountType: form.accountType,
-    normalBalance: form.normalBalance,
-    parentId: form.parentId || null,
-    isPosting: form.isPosting,
-    allowManualEntry: form.allowManualEntry,
-    isActive: form.isActive,
-    sortOrder: Number(form.sortOrder || 0),
-    description: form.description.trim() || undefined,
-  }), [form]);
+  const payload = useMemo<AccountPayload>(
+    () => ({
+      code: form.code.trim(),
+      name: form.name.trim(),
+      accountType: form.accountType,
+      normalBalance: form.normalBalance,
+      parentId: form.parentId || null,
+      isPosting: form.isPosting,
+      allowManualEntry: form.allowManualEntry,
+      isActive: form.isActive,
+      sortOrder: Number(form.sortOrder || 0),
+      description: form.description.trim() || undefined,
+    }),
+    [form],
+  );
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +145,9 @@ export default function AccountUpsertPage() {
         navigate(`/accounts/${created.data.id}`);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không lưu được tài khoản");
+      toast.error(
+        error instanceof Error ? error.message : "Không lưu được tài khoản",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -144,25 +161,50 @@ export default function AccountUpsertPage() {
     <form onSubmit={onSubmit} className="max-w-4xl space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{isEdit ? "Chỉnh sửa tài khoản" : "Tạo tài khoản mới"}</CardTitle>
+          <CardTitle>
+            {isEdit ? "Chỉnh sửa tài khoản" : "Tạo tài khoản mới"}
+          </CardTitle>
           <CardDescription>
-            Cập nhật thông tin định danh, phân loại và quy tắc hạch toán cho tài khoản.
+            Cập nhật thông tin định danh, phân loại và quy tắc hạch toán cho tài
+            khoản.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Số hiệu TK</Label>
-              <Input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} required />
+              <Input
+                value={form.code}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, code: e.target.value }))
+                }
+                required
+              />
             </div>
             <div>
               <Label>Tên tài khoản</Label>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
+                required
+              />
             </div>
             <div>
               <Label>Tính chất tài khoản</Label>
-              <Select value={form.accountType} onValueChange={(value) => setForm((p) => ({ ...p, accountType: value as FormState["accountType"] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.accountType}
+                onValueChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    accountType: value as FormState["accountType"],
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ASSET">Tài sản</SelectItem>
                   <SelectItem value="LIABILITY">Nợ phải trả</SelectItem>
@@ -175,8 +217,18 @@ export default function AccountUpsertPage() {
             </div>
             <div>
               <Label>Dư tính</Label>
-              <Select value={form.normalBalance} onValueChange={(value) => setForm((p) => ({ ...p, normalBalance: value as FormState["normalBalance"] }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.normalBalance}
+                onValueChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    normalBalance: value as FormState["normalBalance"],
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DEBIT">Nợ</SelectItem>
                   <SelectItem value="CREDIT">Có</SelectItem>
@@ -185,26 +237,49 @@ export default function AccountUpsertPage() {
             </div>
             <div>
               <Label>Tài khoản cha</Label>
-              <Select value={form.parentId || "none"} onValueChange={(value) => setForm((p) => ({ ...p, parentId: value === "none" ? "" : value }))}>
-                <SelectTrigger><SelectValue placeholder="Không có" /></SelectTrigger>
+              <Select
+                value={form.parentId || "none"}
+                onValueChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    parentId: value === "none" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Không có" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Không có</SelectItem>
                   {accounts
                     .filter((account) => account.id !== id)
                     .map((account) => (
-                      <SelectItem key={account.id} value={account.id}>{account.code} - {account.name}</SelectItem>
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.code} - {account.name}
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Thứ tự hiển thị</Label>
-              <Input type="number" value={form.sortOrder} onChange={(e) => setForm((p) => ({ ...p, sortOrder: e.target.value }))} />
+              <Input
+                type="number"
+                value={form.sortOrder}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, sortOrder: e.target.value }))
+                }
+              />
             </div>
           </div>
           <div>
             <Label>Mô tả</Label>
-            <Input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+            <Input
+              value={form.description}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, description: e.target.value }))
+              }
+            />
           </div>
         </CardContent>
       </Card>
@@ -216,21 +291,44 @@ export default function AccountUpsertPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center gap-2">
-              <Switch checked={form.isPosting} onCheckedChange={(value) => setForm((p) => ({ ...p, isPosting: value }))} />
+              <Switch
+                checked={form.isPosting}
+                onCheckedChange={(value) =>
+                  setForm((p) => ({ ...p, isPosting: value }))
+                }
+              />
               <Label>Là tài khoản chi tiết</Label>
             </div>
             <div className="flex items-center gap-2">
-              <Switch checked={form.allowManualEntry} onCheckedChange={(value) => setForm((p) => ({ ...p, allowManualEntry: value }))} />
+              <Switch
+                checked={form.allowManualEntry}
+                onCheckedChange={(value) =>
+                  setForm((p) => ({ ...p, allowManualEntry: value }))
+                }
+              />
               <Label>Cho phép nhập tay</Label>
             </div>
             <div className="flex items-center gap-2">
-              <Switch checked={form.isActive} onCheckedChange={(value) => setForm((p) => ({ ...p, isActive: value }))} />
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(value) =>
+                  setForm((p) => ({ ...p, isActive: value }))
+                }
+              />
               <Label>Kích hoạt</Label>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>Hủy</Button>
-            <Button type="submit" disabled={submitting}>{submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo mới"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate(-1)}
+            >
+              Hủy
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo mới"}
+            </Button>
           </div>
         </CardContent>
       </Card>

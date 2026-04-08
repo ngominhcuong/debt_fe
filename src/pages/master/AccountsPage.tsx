@@ -42,12 +42,17 @@ export default function AccountsPage() {
 
   const columns = useMemo<Column<Account>[]>(
     () => [
-      { key: "code", header: "Số hiệu TK", className: "font-medium text-primary" },
+      {
+        key: "code",
+        header: "Số hiệu TK",
+        className: "font-medium text-primary",
+      },
       { key: "name", header: "Tên tài khoản" },
       {
         key: "accountType",
         header: "Tính chất",
-        render: (item) => ACCOUNT_TYPE_LABEL[item.accountType] ?? item.accountType,
+        render: (item) =>
+          ACCOUNT_TYPE_LABEL[item.accountType] ?? item.accountType,
       },
       {
         key: "normalBalance",
@@ -58,7 +63,8 @@ export default function AccountsPage() {
       {
         key: "parent",
         header: "TK cha",
-        render: (item) => (item.parent ? `${item.parent.code} - ${item.parent.name}` : "-"),
+        render: (item) =>
+          item.parent ? `${item.parent.code} - ${item.parent.name}` : "-",
       },
       {
         key: "isPosting",

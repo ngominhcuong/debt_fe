@@ -28,7 +28,11 @@ export default function ItemsPage() {
         const res = await api.master.listItems(accessToken);
         setItems(res.data);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không thể tải danh mục mặt hàng");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải danh mục mặt hàng",
+        );
       } finally {
         setLoading(false);
       }

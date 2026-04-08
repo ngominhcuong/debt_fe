@@ -91,7 +91,11 @@ export default function PartnerUpsertPage() {
           reminderCcEmails: p.reminderCcEmails?.join(",") ?? "",
         });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không tải được dữ liệu đối tác");
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không tải được dữ liệu đối tác",
+        );
       } finally {
         setLoading(false);
       }
@@ -152,7 +156,9 @@ export default function PartnerUpsertPage() {
 
       navigate(`/partners/${id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không lưu được đối tác");
+      toast.error(
+        error instanceof Error ? error.message : "Không lưu được đối tác",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +193,9 @@ export default function PartnerUpsertPage() {
               <Label>Tên đối tác</Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, name: e.target.value }))
+                }
                 required
               />
             </div>
@@ -225,7 +233,9 @@ export default function PartnerUpsertPage() {
               <Label>Điện thoại</Label>
               <Input
                 value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, phone: e.target.value }))
+                }
               />
             </div>
             <div>
@@ -233,7 +243,9 @@ export default function PartnerUpsertPage() {
               <Input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, email: e.target.value }))
+                }
               />
             </div>
             <div>
@@ -264,7 +276,9 @@ export default function PartnerUpsertPage() {
             <Label>Địa chỉ</Label>
             <Input
               value={form.address}
-              onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, address: e.target.value }))
+              }
             />
           </div>
 
