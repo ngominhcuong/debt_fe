@@ -13,6 +13,14 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
     title: "Quản lý Đối tác",
     subtitle: "Khách hàng & Nhà cung cấp",
   },
+  "/items": {
+    title: "Danh mục Mặt hàng",
+    subtitle: "Hàng hóa, dịch vụ và vật tư",
+  },
+  "/items/new": {
+    title: "Danh mục Mặt hàng",
+    subtitle: "Tạo mới mặt hàng",
+  },
   "/opening-balance": {
     title: "Số dư đầu kỳ",
     subtitle: "Cập nhật số dư Nợ/Có đầu kỳ",
@@ -20,6 +28,10 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
   "/accounts": {
     title: "Danh mục Tài khoản Kế toán",
     subtitle: "Hệ thống tài khoản theo TT200",
+  },
+  "/accounts/new": {
+    title: "Danh mục Tài khoản Kế toán",
+    subtitle: "Tạo mới tài khoản",
   },
   "/ar/contracts": {
     title: "Hợp đồng bán hàng",
@@ -82,7 +94,13 @@ export default function AppLayout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const pageMeta =
     pageMetaByPath[location.pathname] ??
-    ({ title: "DebtFlow", subtitle: "Quản lý công nợ" } as const);
+    (location.pathname.startsWith("/partners/")
+      ? ({ title: "Quản lý Đối tác", subtitle: "Chi tiết và cập nhật đối tác" } as const)
+      : location.pathname.startsWith("/items/")
+        ? ({ title: "Danh mục Mặt hàng", subtitle: "Chi tiết và cập nhật mặt hàng" } as const)
+        : location.pathname.startsWith("/accounts/")
+          ? ({ title: "Danh mục Tài khoản Kế toán", subtitle: "Chi tiết và cập nhật tài khoản" } as const)
+          : ({ title: "DebtFlow", subtitle: "Quản lý công nợ" } as const));
 
   return (
     <div className="flex h-screen overflow-hidden">

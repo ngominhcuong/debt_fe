@@ -3,15 +3,12 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
-  Database,
   FileText,
   CreditCard,
   Receipt,
   ArrowDownCircle,
   ArrowUpCircle,
   BarChart3,
-  ChevronDown,
-  ChevronRight,
   Shield,
   Clock,
   LogOut,
@@ -27,9 +24,8 @@ import { toast } from "sonner";
 
 interface MenuItem {
   label: string;
-  path?: string;
+  path: string;
   icon: React.ReactNode;
-  children?: { label: string; path: string }[];
 }
 
 const menuGroups: { title: string; items: MenuItem[] }[] = [
@@ -44,16 +40,13 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     items: [
       {
         label: "Đối tác",
+        path: "/partners",
         icon: <Users size={18} />,
-        children: [
-          { label: "Danh sách đối tác", path: "/partners" },
-          { label: "Thêm đối tác", path: "/partners/new" },
-        ],
       },
       {
-        label: "Số dư đầu kỳ",
-        path: "/opening-balance",
-        icon: <Database size={18} />,
+        label: "Mặt hàng",
+        path: "/items",
+        icon: <FileText size={18} />,
       },
       {
         label: "Tài khoản kế toán",
@@ -158,11 +151,7 @@ export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loggingOut, setLoggingOut] = useState(false);
-
-  const toggle = (label: string) =>
-    setExpanded((p) => ({ ...p, [label]: !p[label] }));
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -214,79 +203,31 @@ export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
               </p>
             )}
             <ul className="space-y-0.5">
-              {group.items.map((item) =>
-                item.children ? (
-                  <li key={item.label}>
-                    <button
-                      onClick={() => toggle(item.label)}
-                      className={`w-full flex items-center rounded-md text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))] transition-all duration-300 ${
-                        collapsed
-                          ? "justify-center px-2 py-2"
-                          : "gap-2.5 px-2.5 py-2"
+              {group.items.map((item) => (
+                <li key={item.path}>
+                  <NavLink
+                    to={item.path}
+                    className={`flex items-center rounded-md transition-all duration-300 ${
+                      collapsed
+                        ? "justify-center px-2 py-2"
+                        : "gap-2.5 px-2.5 py-2"
+                    } ${
+                      isActive(item.path)
+                        ? "bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))]"
+                        : "text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))]"
+                    }`}
+                  >
+                    {item.icon}
+                    <span
+                      className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
+                        collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
                       }`}
                     >
-                      {item.icon}
-                      <span
-                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
-                          collapsed
-                            ? "w-0 opacity-0"
-                            : "flex-1 text-left opacity-100"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                      {!collapsed &&
-                        (expanded[item.label] ? (
-                          <ChevronDown size={14} />
-                        ) : (
-                          <ChevronRight size={14} />
-                        ))}
-                    </button>
-                    {expanded[item.label] && !collapsed && (
-                      <ul className="ml-7 mt-0.5 space-y-0.5">
-                        {item.children.map((child) => (
-                          <li key={child.path}>
-                            <NavLink
-                              to={child.path}
-                              className={`block px-2.5 py-1.5 rounded-md transition-colors ${
-                                isActive(child.path)
-                                  ? "bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))]"
-                                  : "text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))]"
-                              }`}
-                            >
-                              {child.label}
-                            </NavLink>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ) : (
-                  <li key={item.path}>
-                    <NavLink
-                      to={item.path}
-                      className={`flex items-center rounded-md transition-all duration-300 ${
-                        collapsed
-                          ? "justify-center px-2 py-2"
-                          : "gap-2.5 px-2.5 py-2"
-                      } ${
-                        isActive(item.path)
-                          ? "bg-[hsl(var(--sidebar-active))] text-[hsl(var(--sidebar-active-fg))]"
-                          : "text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-hover))]"
-                      }`}
-                    >
-                      {item.icon}
-                      <span
-                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${
-                          collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </NavLink>
-                  </li>
-                ),
-              )}
+                      {item.label}
+                    </span>
+                  </NavLink>
+                </li>
+              ))}
             </ul>
           </div>
         ))}

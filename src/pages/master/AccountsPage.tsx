@@ -1,120 +1,112 @@
-import { ChevronRight, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { api, type Account } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import DataTable, { type Column } from "@/components/shared/DataTable";
+import PageToolbar from "@/components/shared/PageToolbar";
+import PageDataLoading from "@/components/shared/PageDataLoading";
+import { Button } from "@/components/ui/button";
+import { ACCOUNT_TYPE_LABEL, NORMAL_BALANCE_LABEL } from "./catalog-constants";
 
-interface Account {
-  code: string;
-  name: string;
-  type: string;
-  children?: Account[];
-}
+export default function AccountsPage() {
+  const { session } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
-const accounts: Account[] = [
-  {
-    code: "1",
-    name: "Tài sản",
-    type: "Tổng hợp",
-    children: [
-      { code: "111", name: "Tiền mặt", type: "Chi tiết" },
-      { code: "112", name: "Tiền gửi ngân hàng", type: "Chi tiết" },
-      { code: "131", name: "Phải thu khách hàng", type: "Chi tiết" },
-      { code: "136", name: "Phải thu khác", type: "Chi tiết" },
-      { code: "141", name: "Tạm ứng", type: "Chi tiết" },
-      { code: "152", name: "Nguyên vật liệu", type: "Chi tiết" },
-      { code: "156", name: "Hàng hóa", type: "Chi tiết" },
-    ],
-  },
-  {
-    code: "3",
-    name: "Nợ phải trả",
-    type: "Tổng hợp",
-    children: [
-      { code: "331", name: "Phải trả người bán", type: "Chi tiết" },
-      { code: "333", name: "Thuế và các khoản phải nộp", type: "Chi tiết" },
-      { code: "334", name: "Phải trả người lao động", type: "Chi tiết" },
-      { code: "338", name: "Phải trả, phải nộp khác", type: "Chi tiết" },
-    ],
-  },
-  {
-    code: "5",
-    name: "Doanh thu",
-    type: "Tổng hợp",
-    children: [
-      { code: "511", name: "Doanh thu bán hàng", type: "Chi tiết" },
-      { code: "515", name: "Doanh thu tài chính", type: "Chi tiết" },
-    ],
-  },
-  {
-    code: "6",
-    name: "Chi phí",
-    type: "Tổng hợp",
-    children: [
-      { code: "632", name: "Giá vốn hàng bán", type: "Chi tiết" },
-      { code: "641", name: "Chi phí bán hàng", type: "Chi tiết" },
-      { code: "642", name: "Chi phí quản lý DN", type: "Chi tiết" },
-    ],
-  },
-];
+  useEffect(() => {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      return;
+    }
 
-function AccountRow({
-  account,
-  level = 0,
-}: Readonly<{
-  account: Account;
-  level?: number;
-}>) {
-  const [open, setOpen] = useState(true);
-  const hasChildren = account.children && account.children.length > 0;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const res = await api.master.listAccounts(accessToken);
+        setAccounts(res.data);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Không thể tải danh sách tài khoản",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
+  }, [session?.access_token]);
+
+  const columns = useMemo<Column<Account>[]>(
+    () => [
+      { key: "code", header: "Số hiệu TK", className: "font-medium text-primary" },
+      { key: "name", header: "Tên tài khoản" },
+      {
+        key: "accountType",
+        header: "Tính chất",
+        render: (item) => ACCOUNT_TYPE_LABEL[item.accountType] ?? item.accountType,
+      },
+      {
+        key: "normalBalance",
+        header: "Dư tính",
+        render: (item) =>
+          NORMAL_BALANCE_LABEL[item.normalBalance] ?? item.normalBalance,
+      },
+      {
+        key: "parent",
+        header: "TK cha",
+        render: (item) => (item.parent ? `${item.parent.code} - ${item.parent.name}` : "-"),
+      },
+      {
+        key: "isPosting",
+        header: "Hạch toán",
+        render: (item) => (item.isPosting ? "Chi tiết" : "Tổng hợp"),
+      },
+      {
+        key: "actions",
+        header: "Thao tác",
+        render: (item) => (
+          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/accounts/${item.id}`)}
+            >
+              Chi tiết
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/accounts/${item.id}/edit`)}
+            >
+              Chỉnh sửa
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate],
+  );
 
   return (
     <>
-      <tr className="border-t border-border/50 hover:bg-secondary/20">
-        <td
-          className="px-4 py-2.5"
-          style={{ paddingLeft: `${16 + level * 24}px` }}
-        >
-          <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-1.5 font-medium"
-          >
-            {hasChildren &&
-              (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
-            <span className="text-primary font-mono">{account.code}</span>
-          </button>
-        </td>
-        <td className="px-4 py-2.5">{account.name}</td>
-        <td className="px-4 py-2.5">
-          <span
-            className={`px-2 py-0.5 rounded text-xs ${hasChildren ? "bg-secondary text-secondary-foreground" : "bg-primary/10 text-primary"}`}
-          >
-            {account.type}
-          </span>
-        </td>
-      </tr>
-      {open &&
-        account.children?.map((child) => (
-          <AccountRow key={child.code} account={child} level={level + 1} />
-        ))}
+      <PageToolbar
+        searchPlaceholder="Tìm theo số hiệu, tên tài khoản..."
+        onAdd={() => navigate("/accounts/new")}
+        addLabel="Tạo tài khoản"
+      />
+      {loading && accounts.length === 0 ? (
+        <PageDataLoading variant="table" />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={accounts}
+          onRowClick={(item) => navigate(`/accounts/${item.id}`)}
+        />
+      )}
     </>
-  );
-}
-
-export default function AccountsPage() {
-  return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            <th className="text-left px-4 py-3 w-48">Số hiệu TK</th>
-            <th className="text-left px-4 py-3">Tên tài khoản</th>
-            <th className="text-left px-4 py-3 w-32">Loại</th>
-          </tr>
-        </thead>
-        <tbody>
-          {accounts.map((acc) => (
-            <AccountRow key={acc.code} account={acc} />
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }

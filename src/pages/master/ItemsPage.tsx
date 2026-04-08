@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { api, type Partner } from "@/lib/api";
+import { api, type Item } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import DataTable, { type Column } from "@/components/shared/DataTable";
 import PageToolbar from "@/components/shared/PageToolbar";
 import PageDataLoading from "@/components/shared/PageDataLoading";
 import { Button } from "@/components/ui/button";
-import { PARTNER_TYPE_LABEL } from "./catalog-constants";
+import { formatCurrencyVnd } from "@/lib/utils";
+import { ITEM_TYPE_LABEL } from "./catalog-constants";
 
-export default function PartnersPage() {
+export default function ItemsPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
 
   useEffect(() => {
     const accessToken = session?.access_token;
@@ -24,12 +25,10 @@ export default function PartnersPage() {
     const run = async () => {
       setLoading(true);
       try {
-        const res = await api.master.listPartners(accessToken);
-        setPartners(res.data);
+        const res = await api.master.listItems(accessToken);
+        setItems(res.data);
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Không thể tải danh sách đối tác",
-        );
+        toast.error(error instanceof Error ? error.message : "Không thể tải danh mục mặt hàng");
       } finally {
         setLoading(false);
       }
@@ -38,18 +37,21 @@ export default function PartnersPage() {
     void run();
   }, [session?.access_token]);
 
-  const columns = useMemo<Column<Partner>[]>(
+  const columns = useMemo<Column<Item>[]>(
     () => [
-      { key: "code", header: "Mã", className: "font-medium text-primary" },
-      { key: "name", header: "Tên đối tác" },
+      { key: "sku", header: "Mã hàng", className: "font-medium text-primary" },
+      { key: "name", header: "Tên mặt hàng" },
       {
-        key: "partnerType",
+        key: "itemType",
         header: "Loại",
-        render: (item) => PARTNER_TYPE_LABEL[item.partnerType] ?? item.partnerType,
+        render: (item) => ITEM_TYPE_LABEL[item.itemType] ?? item.itemType,
       },
-      { key: "taxCode", header: "Mã số thuế" },
-      { key: "phone", header: "Điện thoại" },
-      { key: "email", header: "Email" },
+      { key: "unit", header: "DVT" },
+      {
+        key: "salePrice",
+        header: "Giá bán",
+        render: (item) => formatCurrencyVnd(item.salePrice),
+      },
       {
         key: "isActive",
         header: "Trạng thái",
@@ -63,14 +65,14 @@ export default function PartnersPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/partners/${item.id}`)}
+              onClick={() => navigate(`/items/${item.id}`)}
             >
               Chi tiết
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate(`/partners/${item.id}/edit`)}
+              onClick={() => navigate(`/items/${item.id}/edit`)}
             >
               Chỉnh sửa
             </Button>
@@ -84,17 +86,17 @@ export default function PartnersPage() {
   return (
     <>
       <PageToolbar
-        searchPlaceholder="Tìm theo mã, tên, MST..."
-        onAdd={() => navigate("/partners/new")}
-        addLabel="Tạo đối tác"
+        searchPlaceholder="Tìm theo mã, tên mặt hàng..."
+        onAdd={() => navigate("/items/new")}
+        addLabel="Tạo mặt hàng"
       />
-      {loading && partners.length === 0 ? (
+      {loading && items.length === 0 ? (
         <PageDataLoading variant="table" />
       ) : (
         <DataTable
           columns={columns}
-          data={partners}
-          onRowClick={(item) => navigate(`/partners/${item.id}`)}
+          data={items}
+          onRowClick={(item) => navigate(`/items/${item.id}`)}
         />
       )}
     </>
