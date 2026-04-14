@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -10,13 +10,13 @@ import {
   FileDown,
   Plus,
   ChevronDown,
+  SendHorizontal,
   Layers,
   AlertCircle,
   Loader2,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  BookCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,40 +44,39 @@ import {
 } from "@/components/ui/resizable";
 import {
   api,
-  type PurchaseInvoiceListItem,
-  type PurchaseInvoiceFull,
+  type SalesInvoiceListItem,
+  type SalesInvoiceFull,
+  type InvoiceStatus,
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// --- Helpers ---
 
 function fmtVND(value: string | number) {
   const n = typeof value === "string" ? Number.parseFloat(value) : value;
   return Number.isNaN(n) ? "0" : new Intl.NumberFormat("vi-VN").format(n);
 }
 
-function fmtDate(iso: string | null | undefined) {
-  if (!iso) return "—";
+function fmtDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-function toIsoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// ─── Badges ──────────────────────────────────────────────────────────────────
+// --- Status badges ---
 
 function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
-  return isPosted ? (
-    <Badge
-      variant="outline"
-      className="bg-success/10 text-success border-success/30 text-xs"
-    >
-      Đã ghi sổ
-    </Badge>
-  ) : (
+  if (isPosted) {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-success/10 text-success border-success/30 text-xs"
+      >
+        Đã ghi sổ
+      </Badge>
+    );
+  }
+  return (
     <Badge
       variant="outline"
       className="bg-muted text-muted-foreground border text-xs"
@@ -87,9 +86,33 @@ function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
   );
 }
 
-// ─── HangTienTab (purchase invoice detail) ────────────────────────────────────
+function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+  const map: Record<InvoiceStatus, { label: string; className: string }> = {
+    DRAFT: {
+      label: "Chưa phát hành",
+      className: "bg-muted text-muted-foreground border text-xs",
+    },
+    ISSUED: {
+      label: "Đã phát hành",
+      className: "bg-success/10 text-success border-success/30 text-xs",
+    },
+    CANCELLED: {
+      label: "Đã hủy",
+      className:
+        "bg-destructive/10 text-destructive border-destructive/30 text-xs",
+    },
+  };
+  const cfg = map[status];
+  return (
+    <Badge variant="outline" className={cfg.className}>
+      {cfg.label}
+    </Badge>
+  );
+}
 
-function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
+// --- Detail panel – Hàng tiền tab ---
+
+function HangTienTab({ invoice }: { invoice: SalesInvoiceFull }) {
   const totalQty = invoice.details.reduce(
     (s, d) => s + Number.parseFloat(d.qty),
     0,
@@ -101,6 +124,7 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
 
   return (
     <table className="w-full text-xs border-collapse table-fixed">
+      {/* STT | Mã hàng | Tên hàng | Kho | TK CN | TK DT | ĐVT | SL | Đơn giá | Đơn giá sau thuế | % VAT | Thành tiền */}
       <colgroup>
         <col className="w-8" />
         <col className="w-24" />
@@ -111,6 +135,7 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
         <col className="w-12" />
         <col className="w-14" />
         <col className="w-24" />
+        <col className="w-28" />
         <col className="w-14" />
         <col className="w-24" />
       </colgroup>
@@ -132,7 +157,7 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
             TK CN
           </th>
           <th className="px-2 py-1.5 text-center font-medium text-muted-foreground whitespace-nowrap">
-            TK CP
+            TK DT
           </th>
           <th className="px-2 py-1.5 text-center font-medium text-muted-foreground whitespace-nowrap">
             ĐVT
@@ -142,6 +167,9 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
           </th>
           <th className="px-2 py-1.5 text-right font-medium text-muted-foreground whitespace-nowrap">
             Đơn giá
+          </th>
+          <th className="px-2 py-1.5 text-right font-medium text-muted-foreground whitespace-nowrap">
+            Đơn giá sau thuế
           </th>
           <th className="px-2 py-1.5 text-center font-medium text-muted-foreground whitespace-nowrap">
             % VAT
@@ -154,7 +182,9 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
       <tbody>
         {invoice.details.map((d, i) => {
           const qty = Number.parseFloat(d.qty);
+          const unitPrice = Number.parseFloat(d.unitPrice);
           const vatRate = Number.parseFloat(d.vatRate);
+          const unitPriceWithTax = unitPrice * (1 + vatRate / 100);
           return (
             <tr
               key={d.id}
@@ -171,10 +201,10 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
                 {d.warehouse?.name ?? "—"}
               </td>
               <td className="px-2 py-1.5 text-center text-muted-foreground">
-                {d.apAccount?.code ?? "331"}
+                {d.arAccount?.code ?? "131"}
               </td>
               <td className="px-2 py-1.5 text-center text-muted-foreground">
-                {d.expAccount?.code ?? "156"}
+                {d.revAccount?.code ?? "511"}
               </td>
               <td className="px-2 py-1.5 text-center">{d.item.unit}</td>
               <td className="px-2 py-1.5 text-right font-mono">
@@ -182,6 +212,9 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
               </td>
               <td className="px-2 py-1.5 text-right font-mono">
                 {fmtVND(d.unitPrice)}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono">
+                {fmtVND(unitPriceWithTax)}
               </td>
               <td className="px-2 py-1.5 text-center">{vatRate}%</td>
               <td className="px-2 py-1.5 text-right font-mono font-medium">
@@ -199,7 +232,7 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
           <td className="px-2 py-1.5 text-right font-mono">
             {totalQty.toLocaleString("vi-VN")}
           </td>
-          <td colSpan={2} />
+          <td colSpan={3} />
           <td className="px-2 py-1.5 text-right font-mono">
             {fmtVND(totalAmt)}
           </td>
@@ -209,15 +242,15 @@ function HangTienTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
   );
 }
 
-// ─── ThongKeTab ───────────────────────────────────────────────────────────────
+// --- Detail panel – Thống kê tab ---
 
-function ThongKeTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
+function ThongKeTab({ invoice }: { invoice: SalesInvoiceFull }) {
   const rows = [
     {
       label: "Tiền hàng (chưa VAT)",
       value: `${fmtVND(invoice.totalAmount)} VND`,
     },
-    { label: "Thuế GTGT đầu vào", value: `${fmtVND(invoice.vatAmount)} VND` },
+    { label: "Thuế GTGT", value: `${fmtVND(invoice.vatAmount)} VND` },
     {
       label: "Tổng thanh toán",
       value: `${fmtVND(invoice.grandTotal)} VND`,
@@ -225,12 +258,13 @@ function ThongKeTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
     },
     null,
     {
-      label: "Nhà cung cấp",
-      value: `${invoice.supplier.code} — ${invoice.supplier.name}`,
+      label: "Khách hàng",
+      value: `${invoice.customer.code} — ${invoice.customer.name}`,
     },
-    { label: "Mã số thuế", value: invoice.supplier.taxCode ?? "—" },
-    { label: "Địa chỉ", value: invoice.supplier.address ?? "—" },
+    { label: "Mã số thuế / CCCD", value: invoice.customer.taxCode ?? "—" },
+    { label: "Địa chỉ", value: invoice.customer.address ?? "—" },
     { label: "Người liên hệ", value: invoice.contactPerson ?? "—" },
+    { label: "Nhân viên bán hàng", value: invoice.salesPersonName ?? "—" },
     { label: "Tham chiếu", value: invoice.reference ?? "—" },
     null,
     { label: "Ngày hạch toán", value: fmtDate(invoice.accountingDate) },
@@ -247,15 +281,24 @@ function ThongKeTab({ invoice }: { invoice: PurchaseInvoiceFull }) {
       value: invoice.dueDate ? fmtDate(invoice.dueDate) : "—",
     },
     null,
-    { label: "Ký hiệu HĐ NCC", value: invoice.invoiceSeries ?? "—" },
-    { label: "Số HĐ NCC", value: invoice.invoiceNumber ?? "—" },
+    { label: "Ký hiệu HĐ", value: invoice.invoiceSeries ?? "—" },
+    { label: "Số hóa đơn", value: invoice.invoiceNumber ?? "Chưa có" },
     {
-      label: "Ngày HĐ NCC",
-      value: invoice.invoiceDate ? fmtDate(invoice.invoiceDate) : "—",
+      label: "Trạng thái HĐ",
+      value:
+        invoice.invoiceStatus === "ISSUED"
+          ? "Đã phát hành"
+          : invoice.invoiceStatus === "CANCELLED"
+            ? "Đã hủy"
+            : "Chưa phát hành",
     },
     {
       label: "Trạng thái ghi sổ",
       value: invoice.isPosted ? "Đã ghi sổ" : "Nháp",
+    },
+    {
+      label: "Kiêm phiếu xuất kho",
+      value: invoice.isDelivered ? "Có" : "Không",
     },
     {
       label: "Người ghi sổ",
@@ -306,8 +349,19 @@ function DetailSkeleton() {
   );
 }
 
-// ─── Sort icon ────────────────────────────────────────────────────────────────
+// --- Date presets ---
 
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// --- suppress unused import warning ---
+type _SalesInvoiceListItemUsed = SalesInvoiceListItem;
+
+// --- Sort icon helper ---
 function SortIcon({
   field,
   sortBy,
@@ -326,58 +380,70 @@ function SortIcon({
   );
 }
 
-// ─── CSV export ───────────────────────────────────────────────────────────────
-
-function exportToCsv(rows: PurchaseInvoiceListItem[]) {
+// --- CSV export ---
+function exportToCsv(rows: SalesInvoiceListItem[]) {
   const headers = [
     "Số chứng từ",
     "Ngày HT",
-    "Nhà cung cấp",
+    "Khách hàng",
     "Tổng TT (VND)",
-    "Số HĐ NCC",
-    "Hạn TT",
+    "Số HĐ",
     "Trạng thái",
+    "HĐ GTGT",
+    "Người ghi sổ",
   ];
   const csvRows = rows.map((r) => [
     r.voucherNumber,
     fmtDate(r.accountingDate),
-    r.supplier.name,
+    r.customer.name,
     r.grandTotal,
     r.invoiceNumber ?? "",
-    r.dueDate ? fmtDate(r.dueDate) : "",
     r.isPosted ? "Đã ghi sổ" : "Nháp",
+    r.isInvoiced
+      ? r.invoiceStatus === "ISSUED"
+        ? "Đã phát hành"
+        : r.invoiceStatus === "CANCELLED"
+          ? "Đã hủy"
+          : "Chưa phát hành"
+      : "—",
+    r.postedBy?.fullName ?? r.postedBy?.email ?? "—",
   ]);
   const content = [headers, ...csvRows]
     .map((row) =>
       row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","),
     )
     .join("\n");
-  const blob = new Blob(["\uFEFF" + content], {
-    type: "text/csv;charset=utf-8;",
-  });
+  const bom = "\uFEFF"; // UTF-8 BOM for Excel to read Vietnamese correctly
+  const blob = new Blob([bom + content], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `chung-tu-mua-hang-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `chung-tu-ban-hang-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// --- Main page ---
 
-export default function APInvoicesPage() {
+export default function SalesInvoicesPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
   const token = session?.access_token ?? "";
+
   const queryClient = useQueryClient();
 
+  // ── Search & basic filters ───────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [postingId, setPostingId] = useState<string | null>(null);
+  const [issuingId, setIssuingId] = useState<string | null>(null);
 
+  // Filter panel state (pending = what user sees; applied = what query uses)
   const [pendingDateFrom, setPendingDateFrom] = useState("");
   const [pendingDateTo, setPendingDateTo] = useState("");
   const [pendingIsPosted, setPendingIsPosted] = useState("all");
+  const [pendingIsInvoiced, setPendingIsInvoiced] = useState("all");
+  const [pendingInvoiceStatus, setPendingInvoiceStatus] = useState("all");
+  const [pendingIsDelivered, setPendingIsDelivered] = useState("all");
   const [pendingDatePreset, setPendingDatePreset] = useState("all");
 
   const [appliedDateFrom, setAppliedDateFrom] = useState<string | undefined>(
@@ -389,25 +455,37 @@ export default function APInvoicesPage() {
   const [appliedIsPosted, setAppliedIsPosted] = useState<boolean | undefined>(
     undefined,
   );
+  const [appliedIsInvoiced, setAppliedIsInvoiced] = useState<
+    boolean | undefined
+  >(undefined);
+  const [appliedInvoiceStatus, setAppliedInvoiceStatus] = useState<
+    "DRAFT" | "ISSUED" | "CANCELLED" | undefined
+  >(undefined);
+  const [appliedIsDelivered, setAppliedIsDelivered] = useState<
+    boolean | undefined
+  >(undefined);
 
+  // ── Sort ────────────────────────────────────────────────────────────────
   const [sortBy, setSortBy] = useState<"accountingDate" | "grandTotal">(
     "accountingDate",
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const PAGE_LIMIT = 50;
-
   function toggleSort(field: "accountingDate" | "grandTotal") {
-    if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
+    if (sortBy === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
       setSortBy(field);
       setSortDir("desc");
     }
     setPage(1);
   }
+
+  // ── Selection & pagination ──────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_LIMIT = 50;
 
   const {
     data: listData,
@@ -416,21 +494,27 @@ export default function APInvoicesPage() {
     refetch,
   } = useQuery({
     queryKey: [
-      "purchase-invoices",
+      "sales-invoices",
       appliedDateFrom,
       appliedDateTo,
       appliedIsPosted,
+      appliedIsInvoiced,
+      appliedInvoiceStatus,
+      appliedIsDelivered,
       sortBy,
       sortDir,
       page,
       token,
     ],
     queryFn: () =>
-      api.purchaseInvoice
+      api.salesInvoice
         .list(token, {
           dateFrom: appliedDateFrom,
           dateTo: appliedDateTo,
           isPosted: appliedIsPosted,
+          isInvoiced: appliedIsInvoiced,
+          invoiceStatus: appliedInvoiceStatus,
+          isDelivered: appliedIsDelivered,
           sortBy,
           sortDir,
           page,
@@ -449,14 +533,14 @@ export default function APInvoicesPage() {
     return rows.filter(
       (r) =>
         r.voucherNumber.toLowerCase().includes(q) ||
-        r.supplier.name.toLowerCase().includes(q),
+        r.customer.name.toLowerCase().includes(q),
     );
   }, [rows, search]);
 
   const { data: detailData, isLoading: detailLoading } = useQuery({
-    queryKey: ["purchase-invoice", selectedId, token],
+    queryKey: ["sales-invoice", selectedId, token],
     queryFn: () =>
-      api.purchaseInvoice.getById(selectedId!, token).then((r) => r.data),
+      api.salesInvoice.getById(selectedId!, token).then((r) => r.data),
     enabled: !!token && !!selectedId,
     staleTime: 60_000,
   });
@@ -466,17 +550,16 @@ export default function APInvoicesPage() {
   const someChecked =
     !allChecked && filteredRows.some((r) => selectedIds.has(r.id));
   const grandTotalSum = filteredRows.reduce(
-    (s, r) => s + Number.parseFloat(r.grandTotal),
+    (sum, r) => sum + Number.parseFloat(r.grandTotal),
     0,
   );
-  const selectedListItem =
-    filteredRows.find((r) => r.id === selectedId) ?? null;
 
   function toggleAll(checked: boolean) {
     setSelectedIds(
       checked ? new Set(filteredRows.map((r) => r.id)) : new Set(),
     );
   }
+
   function toggleRow(id: string, checked: boolean) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -486,6 +569,7 @@ export default function APInvoicesPage() {
     });
   }
 
+  // ── Date preset helper ──────────────────────────────────────────────────
   function applyDatePreset(preset: string) {
     setPendingDatePreset(preset);
     const now = new Date();
@@ -494,9 +578,9 @@ export default function APInvoicesPage() {
       setPendingDateFrom(today);
       setPendingDateTo(today);
     } else if (preset === "7d") {
-      const f = new Date();
-      f.setDate(f.getDate() - 7);
-      setPendingDateFrom(toIsoDate(f));
+      const from = new Date();
+      from.setDate(from.getDate() - 7);
+      setPendingDateFrom(toIsoDate(from));
       setPendingDateTo(today);
     } else if (preset === "month") {
       setPendingDateFrom(
@@ -504,12 +588,12 @@ export default function APInvoicesPage() {
       );
       setPendingDateTo(today);
     } else if (preset === "quarter") {
-      const qs = new Date(
+      const qStart = new Date(
         now.getFullYear(),
         Math.floor(now.getMonth() / 3) * 3,
         1,
       );
-      setPendingDateFrom(toIsoDate(qs));
+      setPendingDateFrom(toIsoDate(qStart));
       setPendingDateTo(today);
     } else if (preset === "ytd") {
       setPendingDateFrom(`${now.getFullYear()}-01-01`);
@@ -526,41 +610,50 @@ export default function APInvoicesPage() {
     setAppliedIsPosted(
       pendingIsPosted === "all" ? undefined : pendingIsPosted === "true",
     );
+    setAppliedIsInvoiced(
+      pendingIsInvoiced === "all" ? undefined : pendingIsInvoiced === "true",
+    );
+    setAppliedInvoiceStatus(
+      pendingInvoiceStatus === "all"
+        ? undefined
+        : (pendingInvoiceStatus as "DRAFT" | "ISSUED" | "CANCELLED"),
+    );
+    setAppliedIsDelivered(
+      pendingIsDelivered === "all" ? undefined : pendingIsDelivered === "true",
+    );
     setPage(1);
     setShowFilter(false);
   }
+
   function handleResetFilter() {
     setPendingDateFrom("");
     setPendingDateTo("");
     setPendingIsPosted("all");
+    setPendingIsInvoiced("all");
+    setPendingInvoiceStatus("all");
+    setPendingIsDelivered("all");
     setPendingDatePreset("all");
+    applyDatePreset("all");
   }
 
   const totalPages = Math.ceil((listData?.total ?? 0) / PAGE_LIMIT);
-  const activeFilterCount = [
-    appliedIsPosted !== undefined,
-    appliedDateFrom !== undefined,
-  ].filter(Boolean).length;
 
-  async function handlePostInvoice(id: string, voucherNumber: string) {
-    if (
-      !window.confirm(
-        `Ghi sổ chứng từ ${voucherNumber}? Sau khi ghi sổ không thể chỉnh sửa.`,
-      )
-    )
-      return;
-    setPostingId(id);
+  async function handleIssueInvoice(id: string) {
+    setIssuingId(id);
     try {
-      await api.purchaseInvoice.post(id, token);
-      toast.success(`Đã ghi sổ chứng từ ${voucherNumber}`);
-      void queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["purchase-invoice", id],
-      });
+      const result = await api.salesInvoice.issueInvoice(id, token);
+      toast.success(
+        `Phát hành hóa đơn thành công — Số HĐ: ${result.data.invoiceNumber ?? "—"}`,
+        { duration: 5000 },
+      );
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoice", id] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lỗi khi ghi sổ");
+      toast.error(
+        err instanceof Error ? err.message : "Lỗi khi phát hành hóa đơn",
+      );
     } finally {
-      setPostingId(null);
+      setIssuingId(null);
     }
   }
 
@@ -572,7 +665,7 @@ export default function APInvoicesPage() {
     )
       return;
     try {
-      await api.purchaseInvoice.delete(id, token);
+      await api.salesInvoice.delete(id, token);
       toast.success(`Đã xóa chứng từ ${voucherNumber}`);
       if (selectedId === id) setSelectedId(null);
       setSelectedIds((prev) => {
@@ -580,16 +673,28 @@ export default function APInvoicesPage() {
         next.delete(id);
         return next;
       });
-      void queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoices"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Lỗi khi xóa chứng từ");
     }
   }
 
+  const selectedListItem =
+    filteredRows.find((r) => r.id === selectedId) ?? null;
+
+  // ── Active filter count badge ────────────────────────────────────────────
+  const activeFilterCount = [
+    appliedIsPosted !== undefined,
+    appliedIsInvoiced !== undefined,
+    appliedInvoiceStatus !== undefined,
+    appliedIsDelivered !== undefined,
+    appliedDateFrom !== undefined,
+  ].filter(Boolean).length;
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
       <ResizablePanelGroup direction="vertical">
-        {/* ── Top: list ── */}
+        {/* Top: voucher list */}
         <ResizablePanel
           defaultSize={58}
           minSize={30}
@@ -606,23 +711,30 @@ export default function APInvoicesPage() {
                     className="gap-1.5 text-xs h-8"
                     disabled={selectedIds.size === 0}
                   >
-                    <Layers size={14} /> Thực hiện hàng loạt{" "}
+                    <Layers size={14} />
+                    Thực hiện hàng loạt
                     <ChevronDown size={12} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
+                  <DropdownMenuItem>Ghi sổ các dòng đã chọn</DropdownMenuItem>
+                  <DropdownMenuItem>
+                    Phát hành hóa đơn hàng loạt
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="text-destructive">
                     Xóa các dòng đã chọn
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
               <Button
                 variant={showFilter ? "secondary" : "outline"}
                 size="sm"
                 className="gap-1.5 text-xs h-8 relative"
                 onClick={() => setShowFilter((v) => !v)}
               >
-                <Filter size={14} /> Lọc
+                <Filter size={14} />
+                Lọc
                 {activeFilterCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
                     {activeFilterCount}
@@ -630,6 +742,7 @@ export default function APInvoicesPage() {
                 )}
               </Button>
             </div>
+
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search
@@ -642,7 +755,7 @@ export default function APInvoicesPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Số chứng từ, nhà cung cấp..."
+                  placeholder="Số chứng từ, khách hàng..."
                   className="pl-8 h-8 w-60 text-xs"
                 />
               </div>
@@ -679,9 +792,10 @@ export default function APInvoicesPage() {
               <Button
                 size="sm"
                 className="gap-1.5 text-xs h-8"
-                onClick={() => navigate("/ap/invoices/new")}
+                onClick={() => navigate("/sales/invoices/new")}
               >
-                <Plus size={14} /> Thêm mới
+                <Plus size={14} />
+                Thêm mới
               </Button>
             </div>
           </div>
@@ -689,14 +803,14 @@ export default function APInvoicesPage() {
           {/* Filter panel */}
           {showFilter && (
             <div className="px-4 py-3 border-b border-border bg-muted/30 shrink-0">
-              <div className="flex items-end gap-3 flex-wrap">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Trạng thái ghi sổ</Label>
                   <Select
                     value={pendingIsPosted}
                     onValueChange={setPendingIsPosted}
                   >
-                    <SelectTrigger className="h-8 text-xs w-40">
+                    <SelectTrigger className="h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -706,6 +820,65 @@ export default function APInvoicesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Trạng thái lập hóa đơn</Label>
+                  <Select
+                    value={pendingIsInvoiced}
+                    onValueChange={(v) => {
+                      setPendingIsInvoiced(v);
+                      if (v !== "true") setPendingInvoiceStatus("all");
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="true">Có lập hóa đơn</SelectItem>
+                      <SelectItem value="false">Không lập hóa đơn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Trạng thái phát hành</Label>
+                  <Select
+                    value={pendingInvoiceStatus}
+                    onValueChange={setPendingInvoiceStatus}
+                    disabled={pendingIsInvoiced !== "true"}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="DRAFT">Chưa phát hành</SelectItem>
+                      <SelectItem value="ISSUED">Đã phát hành</SelectItem>
+                      <SelectItem value="CANCELLED">Đã hủy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Trạng thái xuất hàng</Label>
+                  <Select
+                    value={pendingIsDelivered}
+                    onValueChange={setPendingIsDelivered}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="true">Kèm phiếu xuất kho</SelectItem>
+                      <SelectItem value="false">Không xuất kho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-end gap-3 flex-wrap">
                 <div className="space-y-1">
                   <Label className="text-xs">Thời gian</Label>
                   <Select
@@ -805,7 +978,7 @@ export default function APInvoicesPage() {
                       onClick={() => toggleSort("accountingDate")}
                     >
                       <span className="inline-flex items-center">
-                        Ngày HT{" "}
+                        Ngày HT
                         <SortIcon
                           field="accountingDate"
                           sortBy={sortBy}
@@ -814,23 +987,14 @@ export default function APInvoicesPage() {
                       </span>
                     </th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
-                      Nhà cung cấp
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Ngày HĐ NCC
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Số HĐ NCC
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Hạn TT
+                      Khách hàng
                     </th>
                     <th
                       className="px-3 py-2 text-right font-medium text-muted-foreground text-xs whitespace-nowrap w-36 cursor-pointer hover:text-foreground select-none"
                       onClick={() => toggleSort("grandTotal")}
                     >
                       <span className="inline-flex items-center justify-end w-full">
-                        Tổng TT (VND){" "}
+                        Tổng TT (VND)
                         <SortIcon
                           field="grandTotal"
                           sortBy={sortBy}
@@ -839,7 +1003,16 @@ export default function APInvoicesPage() {
                       </span>
                     </th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                      Số HĐ
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
                       Trạng thái
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                      HĐ GTGT
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-32">
+                      Người ghi sổ
                     </th>
                     <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
                       Chức năng
@@ -853,7 +1026,15 @@ export default function APInvoicesPage() {
                         colSpan={10}
                         className="px-3 py-12 text-center text-muted-foreground text-sm"
                       >
-                        Không có dữ liệu chứng từ mua hàng.
+                        Không có dữ liệu.{" "}
+                        <button
+                          type="button"
+                          className="text-primary underline hover:no-underline"
+                          onClick={() => navigate("/sales/invoices/new")}
+                        >
+                          Thêm mới
+                        </button>{" "}
+                        để tạo chứng từ bán hàng đầu tiên.
                       </td>
                     </tr>
                   ) : (
@@ -870,10 +1051,11 @@ export default function APInvoicesPage() {
                           <Checkbox
                             checked={selectedIds.has(inv.id)}
                             onCheckedChange={(c) => toggleRow(inv.id, !!c)}
+                            aria-label={`Chọn ${inv.voucherNumber}`}
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <span className="text-primary font-medium text-xs">
+                          <span className="text-primary font-medium text-xs hover:underline cursor-pointer">
                             {inv.voucherNumber}
                           </span>
                         </td>
@@ -881,22 +1063,28 @@ export default function APInvoicesPage() {
                           {fmtDate(inv.accountingDate)}
                         </td>
                         <td className="px-3 py-2 text-xs">
-                          {inv.supplier.name}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {fmtDate(inv.invoiceDate)}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {inv.invoiceNumber ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {fmtDate(inv.dueDate)}
+                          {inv.customer.name}
                         </td>
                         <td className="px-3 py-2 text-right text-xs font-mono font-medium">
                           {fmtVND(inv.grandTotal)}
                         </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {inv.invoiceNumber ?? "—"}
+                        </td>
                         <td className="px-3 py-2">
                           <VoucherStatusBadge isPosted={inv.isPosted} />
+                        </td>
+                        <td className="px-3 py-2">
+                          {inv.isInvoiced ? (
+                            <InvoiceStatusBadge status={inv.invoiceStatus} />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {inv.postedBy?.fullName ?? inv.postedBy?.email ?? "—"}
                         </td>
                         <td
                           className="px-3 py-2 text-center"
@@ -915,29 +1103,46 @@ export default function APInvoicesPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="gap-2"
+                                disabled={
+                                  inv.invoiceStatus === "ISSUED" ||
+                                  issuingId === inv.id
+                                }
+                                onClick={() => handleIssueInvoice(inv.id)}
+                              >
+                                {issuingId === inv.id ? (
+                                  <>
+                                    <Loader2
+                                      size={13}
+                                      className="animate-spin"
+                                    />
+                                    Đang phát hành…
+                                  </>
+                                ) : (
+                                  <>
+                                    <SendHorizontal size={13} />
+                                    Phát hành hóa đơn
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() =>
-                                  navigate(`/ap/invoices/${inv.id}/edit`)
+                                  navigate(`/sales/invoices/${inv.id}`)
+                                }
+                              >
+                                Xem
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(`/sales/invoices/${inv.id}/edit`)
                                 }
                               >
                                 Sửa
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                className="gap-2"
-                                disabled={inv.isPosted || postingId === inv.id}
-                                onClick={() =>
-                                  handlePostInvoice(inv.id, inv.voucherNumber)
-                                }
-                              >
-                                {postingId === inv.id ? (
-                                  <Loader2 size={13} className="animate-spin" />
-                                ) : (
-                                  <BookCheck size={13} />
-                                )}
-                                Ghi sổ
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
                                 className="text-destructive"
-                                disabled={inv.isPosted}
+                                disabled={
+                                  inv.isPosted || inv.invoiceStatus !== "DRAFT"
+                                }
                                 onClick={() =>
                                   handleDeleteInvoice(inv.id, inv.voucherNumber)
                                 }
@@ -957,11 +1162,12 @@ export default function APInvoicesPage() {
                       <td className="px-3 py-2" colSpan={2}>
                         Tổng: {filteredRows.length} chứng từ
                       </td>
-                      <td colSpan={5} />
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2" />
                       <td className="px-3 py-2 text-right font-mono">
                         {fmtVND(grandTotalSum)}
                       </td>
-                      <td colSpan={2} />
+                      <td className="px-3 py-2" colSpan={5} />
                     </tr>
                   </tfoot>
                 )}
@@ -969,7 +1175,7 @@ export default function APInvoicesPage() {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination bar */}
           <div className="px-4 py-1.5 border-t border-border bg-card flex items-center justify-between shrink-0">
             <span className="text-xs text-muted-foreground">
               {selectedIds.size > 0
@@ -978,7 +1184,9 @@ export default function APInvoicesPage() {
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
-                Trang {page}/{totalPages || 1}
+                Trang {page}/{totalPages || 1} — {(page - 1) * PAGE_LIMIT + 1}–
+                {Math.min(page * PAGE_LIMIT, listData?.total ?? 0)} /{" "}
+                {listData?.total ?? 0}
               </span>
               <div className="flex items-center gap-1">
                 <Button
@@ -1006,7 +1214,7 @@ export default function APInvoicesPage() {
 
         <ResizableHandle withHandle />
 
-        {/* ── Bottom: detail panel ── */}
+        {/* Bottom: detail panel */}
         <ResizablePanel
           defaultSize={42}
           minSize={20}
@@ -1026,7 +1234,7 @@ export default function APInvoicesPage() {
                   <>
                     <span className="text-muted-foreground text-xs">|</span>
                     <span className="text-xs text-foreground">
-                      {selectedListItem.supplier.name}
+                      {selectedListItem.customer.name}
                     </span>
                     <span className="text-muted-foreground text-xs">|</span>
                     <span className="text-xs text-muted-foreground">
@@ -1036,14 +1244,20 @@ export default function APInvoicesPage() {
                     <span className="text-xs font-mono font-medium">
                       {fmtVND(selectedListItem.grandTotal)} VND
                     </span>
-                    <span className="ml-auto">
+                    <span className="ml-auto flex items-center gap-2">
                       <VoucherStatusBadge
                         isPosted={selectedListItem.isPosted}
                       />
+                      {selectedListItem.isInvoiced && (
+                        <InvoiceStatusBadge
+                          status={selectedListItem.invoiceStatus}
+                        />
+                      )}
                     </span>
                   </>
                 )}
               </div>
+
               <Tabs
                 defaultValue="hang-tien"
                 className="flex flex-col flex-1 min-h-0 overflow-hidden"
@@ -1053,6 +1267,8 @@ export default function APInvoicesPage() {
                     [
                       { value: "hang-tien", label: "Hàng tiền" },
                       { value: "thong-ke", label: "Thống kê" },
+                      { value: "thue", label: "Thuế" },
+                      { value: "gia-von", label: "Giá vốn" },
                     ] as const
                   ).map((tab) => (
                     <TabsTrigger
@@ -1064,6 +1280,7 @@ export default function APInvoicesPage() {
                     </TabsTrigger>
                   ))}
                 </TabsList>
+
                 <TabsContent
                   value="hang-tien"
                   className="flex-1 min-h-0 overflow-auto m-0 p-0"
@@ -1074,6 +1291,7 @@ export default function APInvoicesPage() {
                     <HangTienTab invoice={detailData} />
                   )}
                 </TabsContent>
+
                 <TabsContent
                   value="thong-ke"
                   className="flex-1 min-h-0 overflow-auto m-0"
@@ -1082,6 +1300,133 @@ export default function APInvoicesPage() {
                     <DetailSkeleton />
                   ) : (
                     <ThongKeTab invoice={detailData} />
+                  )}
+                </TabsContent>
+
+                <TabsContent value="thue" className="flex-1 m-0 overflow-auto">
+                  {detailLoading || !detailData ? (
+                    <DetailSkeleton />
+                  ) : detailData.isInvoiced ? (
+                    <div className="p-4 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Ký hiệu HĐ
+                        </span>
+                        <span className="text-sm">
+                          {detailData.invoiceSeries ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Số HĐ
+                        </span>
+                        <span className="text-sm">
+                          {detailData.invoiceNumber ?? "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Ngày HĐ
+                        </span>
+                        <span className="text-sm">
+                          {detailData.invoiceDate
+                            ? fmtDate(detailData.invoiceDate)
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Trạng thái HĐ
+                        </span>
+                        <InvoiceStatusBadge status={detailData.invoiceStatus} />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          Thuế GTGT
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {fmtVND(detailData.vatAmount)} VND
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center mt-8 p-4">
+                      Chứng từ này không lập kèm hóa đơn GTGT
+                    </p>
+                  )}
+                </TabsContent>
+
+                <TabsContent
+                  value="gia-von"
+                  className="flex-1 m-0 overflow-auto"
+                >
+                  {detailLoading || !detailData ? (
+                    <DetailSkeleton />
+                  ) : (
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm z-10">
+                        <tr className="border-b border-border">
+                          {[
+                            "STT",
+                            "Mã hàng",
+                            "Tên hàng",
+                            "ĐVT",
+                            "SL",
+                            "Giá vốn đơn vị",
+                            "Giá vốn tổng",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap first:text-center"
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailData.details.map((d, i) => {
+                          const qty = Number.parseFloat(d.qty);
+                          const unitPrice = Number.parseFloat(d.unitPrice);
+                          // giá vốn chưa có trong detail — hiển thị placeholder
+                          return (
+                            <tr
+                              key={d.id}
+                              className="border-b border-border/40 hover:bg-muted/30"
+                            >
+                              <td className="px-2 py-1.5 text-center text-muted-foreground">
+                                {i + 1}
+                              </td>
+                              <td className="px-2 py-1.5 font-medium text-primary">
+                                {d.item.sku}
+                              </td>
+                              <td className="px-2 py-1.5">{d.item.name}</td>
+                              <td className="px-2 py-1.5">{d.item.unit}</td>
+                              <td className="px-2 py-1.5 text-right font-mono">
+                                {qty.toLocaleString("vi-VN")}
+                              </td>
+                              {d.item.itemType === "GOODS" ? (
+                                <>
+                                  <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                                    —
+                                  </td>
+                                  <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                                    —
+                                  </td>
+                                </>
+                              ) : (
+                                <td
+                                  className="px-2 py-1.5 text-muted-foreground text-center"
+                                  colSpan={2}
+                                >
+                                  Dịch vụ / không theo dõi kho
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   )}
                 </TabsContent>
               </Tabs>

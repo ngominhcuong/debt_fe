@@ -41,7 +41,19 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
     title: "Hóa đơn Bán ra",
     subtitle: "Quản lý hóa đơn bán hàng & dịch vụ",
   },
+  "/sales/invoices": {
+    title: "Chứng từ Bán hàng",
+    subtitle: "Danh sách phiếu xuất & bán hàng",
+  },
+  "/sales/invoices/new": {
+    title: "Chứng từ Bán hàng",
+    subtitle: "Tạo phiếu bán hàng mới",
+  },
   "/ar/receipts": { title: "Thu tiền", subtitle: "Phiếu thu & Giấy báo Có" },
+  "/ar/debts": {
+    title: "Công nợ cần thu",
+    subtitle: "Sổ chi tiết công nợ phải thu khách hàng",
+  },
   "/ar/overdue": {
     title: "Nợ phải thu Quá hạn",
     subtitle: "Danh sách hóa đơn quá hạn thanh toán",
@@ -51,8 +63,16 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Quản lý hợp đồng với nhà cung cấp",
   },
   "/ap/invoices": {
-    title: "Hóa đơn Đầu vào",
-    subtitle: "Quản lý hóa đơn từ nhà cung cấp",
+    title: "Mua hàng",
+    subtitle: "Quản lý chứng từ mua hàng",
+  },
+  "/ap/invoices/new": {
+    title: "Tạo chứng từ mua hàng",
+    subtitle: "Nhập thông tin đơn mua hàng mới",
+  },
+  "/ap/debts": {
+    title: "Công nợ phải trả",
+    subtitle: "Sổ chi tiết công nợ phải trả nhà cung cấp",
   },
   "/ap/payment-requests": {
     title: "Yêu cầu Thanh toán",
@@ -87,6 +107,10 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
     title: "Đổi mật khẩu",
     subtitle: "Cập nhật mật khẩu tài khoản",
   },
+  "/settings/invoice-settings": {
+    title: "Dải hóa đơn",
+    subtitle: "Cấu hình ký hiệu và dải số hóa đơn",
+  },
 };
 
 function getFallbackPageMeta(pathname: string) {
@@ -111,6 +135,13 @@ function getFallbackPageMeta(pathname: string) {
     } as const;
   }
 
+  if (pathname.startsWith("/ap/invoices/")) {
+    return {
+      title: "Chứng từ mua hàng",
+      subtitle: "Chỉnh sửa chứng từ mua hàng",
+    } as const;
+  }
+
   return { title: "DebtFlow", subtitle: "Quản lý công nợ" } as const;
 }
 
@@ -130,8 +161,19 @@ export default function AppLayout() {
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         />
-        <main className="flex-1 p-6 overflow-y-auto">
-          <Outlet />
+        <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {location.pathname.startsWith("/sales/") ||
+          location.pathname === "/ar/debts" ||
+          location.pathname === "/ap/invoices" ||
+          location.pathname === "/ap/debts" ? (
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <Outlet />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-6">
+              <Outlet />
+            </div>
+          )}
         </main>
       </div>
     </div>

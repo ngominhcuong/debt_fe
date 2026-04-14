@@ -4,20 +4,19 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  CreditCard,
   Receipt,
-  ArrowDownCircle,
-  ArrowUpCircle,
   BarChart3,
   Shield,
   Clock,
   LogOut,
-  FileCheck,
   AlertTriangle,
   ClipboardList,
   BookOpen,
   TrendingUp,
   Building2,
+  ShoppingCart,
+  Settings,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -53,15 +52,20 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         path: "/accounts",
         icon: <BookOpen size={18} />,
       },
+      {
+        label: "Số dư đầu kỳ",
+        path: "/opening-balance",
+        icon: <Building2 size={18} />,
+      },
     ],
   },
   {
     title: "CÔNG NỢ PHẢI THU",
     items: [
       {
-        label: "Hợp đồng bán",
-        path: "/ar/contracts",
-        icon: <FileText size={18} />,
+        label: "Bán hàng",
+        path: "/sales/invoices",
+        icon: <ShoppingCart size={18} />,
       },
       {
         label: "Hóa đơn bán ra",
@@ -69,13 +73,8 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         icon: <Receipt size={18} />,
       },
       {
-        label: "Thu tiền",
-        path: "/ar/receipts",
-        icon: <ArrowDownCircle size={18} />,
-      },
-      {
-        label: "Nợ quá hạn",
-        path: "/ar/overdue",
+        label: "Công nợ cần thu",
+        path: "/ar/debts",
         icon: <AlertTriangle size={18} />,
       },
     ],
@@ -84,24 +83,14 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
     title: "CÔNG NỢ PHẢI TRẢ",
     items: [
       {
-        label: "Hợp đồng mua",
-        path: "/ap/contracts",
-        icon: <FileCheck size={18} />,
-      },
-      {
-        label: "Hóa đơn đầu vào",
+        label: "Mua hàng",
         path: "/ap/invoices",
         icon: <ClipboardList size={18} />,
       },
       {
-        label: "Yêu cầu thanh toán",
-        path: "/ap/payment-requests",
-        icon: <CreditCard size={18} />,
-      },
-      {
-        label: "Chi tiền",
-        path: "/ap/payments",
-        icon: <ArrowUpCircle size={18} />,
+        label: "Công nợ phải trả",
+        path: "/ap/debts",
+        icon: <AlertTriangle size={18} />,
       },
     ],
   },
@@ -123,10 +112,20 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         path: "/reports/management",
         icon: <BarChart3 size={18} />,
       },
+    ],
+  },
+  {
+    title: "CẤU HÌNH",
+    items: [
       {
-        label: "Phân tích tuổi nợ",
-        path: "/reports/aging",
-        icon: <TrendingUp size={18} />,
+        label: "Dải hóa đơn",
+        path: "/settings/invoice-settings",
+        icon: <Settings size={18} />,
+      },
+      {
+        label: "Lịch nhắc nợ",
+        path: "/settings/reminders",
+        icon: <Bell size={18} />,
       },
     ],
   },
@@ -150,8 +149,14 @@ interface AppSidebarProps {
 export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, profile } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const isChief = profile?.role === "CHIEF_ACCOUNTANT";
+
+  const visibleGroups = menuGroups.filter(
+    (g) => g.title !== "QUẢN TRỊ" || isChief,
+  );
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -195,7 +200,7 @@ export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4">
-        {menuGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.title}>
             {!collapsed && (
               <p className="px-2 mb-1.5 text-[10px] font-semibold tracking-widest text-[hsl(var(--sidebar-section))]">

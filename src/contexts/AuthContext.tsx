@@ -190,3 +190,9 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
+
+// Vite HMR: AuthContext uses createContext() whose identity must stay stable.
+// Partial hot-reload would break context identity, so force a full page reload.
+if (import.meta.hot) {
+  import.meta.hot.decline();
+}

@@ -34,10 +34,16 @@ import ARContractsPage from "./pages/ar/ARContractsPage";
 import ARInvoicesPage from "./pages/ar/ARInvoicesPage";
 import ARReceiptsPage from "./pages/ar/ARReceiptsPage";
 import AROverduePage from "./pages/ar/AROverduePage";
+import ARDebtsPage from "./pages/ar/ARDebtsPage";
 import APContractsPage from "./pages/ap/APContractsPage";
 import APInvoicesPage from "./pages/ap/APInvoicesPage";
+import APInvoiceUpsertPage from "./pages/ap/APInvoiceUpsertPage";
 import APPaymentRequestsPage from "./pages/ap/APPaymentRequestsPage";
 import APPaymentsPage from "./pages/ap/APPaymentsPage";
+import APDebtsPage from "./pages/ap/APDebtsPage";
+import SalesInvoiceUpsertPage from "./pages/sales/SalesInvoiceUpsertPage";
+import SalesInvoicesPage from "./pages/sales/SalesInvoicesPage";
+import SalesInvoiceDetailPage from "./pages/sales/SalesInvoiceDetailPage";
 import ReconciliationPage from "./pages/reports/ReconciliationPage";
 import LedgerPage from "./pages/reports/LedgerPage";
 import ManagementReportPage from "./pages/reports/ManagementReportPage";
@@ -45,6 +51,9 @@ import AgingReportPage from "./pages/reports/AgingReportPage";
 import UsersPage from "./pages/admin/UsersPage";
 import AuditLogPage from "./pages/admin/AuditLogPage";
 import ChangePasswordPage from "./pages/settings/ChangePasswordPage";
+import InvoiceSettingsPage from "./pages/settings/InvoiceSettingsPage";
+import ReminderSettingsPage from "./pages/settings/ReminderSettingsPage";
+import InvoicePrintPage from "./pages/ar/InvoicePrintPage";
 import NotFound from "./pages/NotFound";
 import type { ReactNode } from "react";
 
@@ -75,6 +84,24 @@ function RequireAuth({ children }: Readonly<{ children: ReactNode }>) {
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function RequireChief({ children }: Readonly<{ children: ReactNode }>) {
+  const { session, profile, loading } = useAuth();
+
+  if (loading) {
+    return <AppLoadingScreen message="Đang tải dữ liệu..." />;
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (profile && profile.role !== "CHIEF_ACCOUNTANT") {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -137,13 +164,36 @@ const App = () => (
                 <Route path="/ar/invoices" element={<ARInvoicesPage />} />
                 <Route path="/ar/receipts" element={<ARReceiptsPage />} />
                 <Route path="/ar/overdue" element={<AROverduePage />} />
+                <Route path="/ar/debts" element={<ARDebtsPage />} />
                 <Route path="/ap/contracts" element={<APContractsPage />} />
                 <Route path="/ap/invoices" element={<APInvoicesPage />} />
+                <Route
+                  path="/ap/invoices/new"
+                  element={<APInvoiceUpsertPage />}
+                />
+                <Route
+                  path="/ap/invoices/:id/edit"
+                  element={<APInvoiceUpsertPage />}
+                />
                 <Route
                   path="/ap/payment-requests"
                   element={<APPaymentRequestsPage />}
                 />
                 <Route path="/ap/payments" element={<APPaymentsPage />} />
+                <Route path="/ap/debts" element={<APDebtsPage />} />
+                <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
+                <Route
+                  path="/sales/invoices/new"
+                  element={<SalesInvoiceUpsertPage />}
+                />
+                <Route
+                  path="/sales/invoices/:id"
+                  element={<SalesInvoiceDetailPage />}
+                />
+                <Route
+                  path="/sales/invoices/:id/edit"
+                  element={<SalesInvoiceUpsertPage />}
+                />
                 <Route
                   path="/reports/reconciliation"
                   element={<ReconciliationPage />}
@@ -154,13 +204,44 @@ const App = () => (
                   element={<ManagementReportPage />}
                 />
                 <Route path="/reports/aging" element={<AgingReportPage />} />
-                <Route path="/admin/users" element={<UsersPage />} />
-                <Route path="/admin/audit-log" element={<AuditLogPage />} />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <RequireChief>
+                      <UsersPage />
+                    </RequireChief>
+                  }
+                />
+                <Route
+                  path="/admin/audit-log"
+                  element={
+                    <RequireChief>
+                      <AuditLogPage />
+                    </RequireChief>
+                  }
+                />
                 <Route
                   path="/settings/change-password"
                   element={<ChangePasswordPage />}
                 />
+                <Route
+                  path="/settings/invoice-settings"
+                  element={<InvoiceSettingsPage />}
+                />
+                <Route
+                  path="/settings/reminders"
+                  element={<ReminderSettingsPage />}
+                />
               </Route>
+              {/* Print pages — no sidebar layout */}
+              <Route
+                path="/ar/invoices/:id/print"
+                element={
+                  <RequireAuth>
+                    <InvoicePrintPage />
+                  </RequireAuth>
+                }
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppBootstrapGate>

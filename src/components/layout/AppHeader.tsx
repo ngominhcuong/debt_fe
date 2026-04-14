@@ -2,6 +2,7 @@ import {
   Bell,
   ChevronsLeft,
   ChevronsRight,
+  HelpCircle,
   Lock,
   LogIn,
   Search,
@@ -82,7 +83,20 @@ export default function AppHeader({
           />
           <Input placeholder="Tìm kiếm..." className="pl-9 w-64 h-9 text-sm" />
         </div>
-        <button className="relative p-2 rounded-md hover:bg-secondary transition-colors">
+        <button
+          type="button"
+          className="p-2 rounded-md hover:bg-secondary transition-colors"
+          title="Trợ giúp"
+          aria-label="Trợ giúp"
+        >
+          <HelpCircle size={18} className="text-muted-foreground" />
+        </button>
+        <button
+          type="button"
+          className="relative p-2 rounded-md hover:bg-secondary transition-colors"
+          title="Thông báo"
+          aria-label="Thông báo"
+        >
           <Bell size={18} className="text-muted-foreground" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
         </button>
