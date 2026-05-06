@@ -1,18 +1,19 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { api, type DashboardStats } from "@/lib/api";
 import KPICard from "@/components/shared/KPICard";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
+import coreBanner from "@/assets/Core-Value-Photo-Only.png";
 import {
-  Building2,
   MapPin,
   Phone,
   Mail,
-  Globe,
   FileText,
   BarChart3,
   TrendingUp,
   Users,
   Clock,
   Shield,
-  Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
   AlertTriangle,
@@ -29,54 +30,6 @@ import {
   Line,
   Legend,
 } from "recharts";
-
-const cashflowData = [
-  { month: "T1", thu: 450, chi: 320 },
-  { month: "T2", thu: 520, chi: 410 },
-  { month: "T3", thu: 380, chi: 350 },
-  { month: "T4", thu: 610, chi: 480 },
-  { month: "T5", thu: 550, chi: 390 },
-  { month: "T6", thu: 700, chi: 520 },
-];
-
-const overdueData = [
-  { range: "Chưa đến hạn", amount: 1250 },
-  { range: "1-30 ngày", amount: 450 },
-  { range: "31-60 ngày", amount: 280 },
-  { range: "61-90 ngày", amount: 120 },
-  { range: ">90 ngày", amount: 85 },
-];
-
-const recentInvoices = [
-  {
-    id: "HD-001",
-    partner: "Cty TNHH ABC",
-    amount: "125,000,000",
-    due: "15/04/2026",
-    status: "unpaid",
-  },
-  {
-    id: "HD-002",
-    partner: "Cty CP XYZ",
-    amount: "89,500,000",
-    due: "20/04/2026",
-    status: "partial",
-  },
-  {
-    id: "HD-003",
-    partner: "Cty DEF",
-    amount: "45,200,000",
-    due: "10/03/2026",
-    status: "overdue",
-  },
-  {
-    id: "HD-004",
-    partner: "Cty GHI Corp",
-    amount: "210,000,000",
-    due: "25/04/2026",
-    status: "unpaid",
-  },
-];
 
 const highlights = [
   {
@@ -115,25 +68,27 @@ function GuestView() {
   return (
     <div className="space-y-6">
       {/* Hero banner */}
-      <div className="relative rounded-2xl overflow-hidden min-h-[220px] flex items-end bg-gradient-to-br from-primary via-primary/90 to-primary/70 shadow-md">
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-white/10 pointer-events-none" />
-        <div className="absolute top-10 -right-4 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute -bottom-8 left-1/3 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+      <div className="relative rounded-2xl overflow-hidden min-h-[220px] flex items-end shadow-md">
+        <img
+          src={coreBanner}
+          alt="MWConnect"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/40" />
         <div className="relative z-10 p-8 flex items-center gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0 shadow-lg">
-            <Building2 size={32} className="text-white" />
+          <div className="shrink-0">
+            <img src={mwLogo} alt="MWConnect" className="h-16 w-auto" />
           </div>
           <div>
             <p className="text-white/70 text-sm font-medium uppercase tracking-widest mb-1">
               Chào mừng đến với
             </p>
             <h1 className="text-white text-2xl font-bold leading-tight">
-              Hệ thống Quản lý Công nợ TTH
+              Phần mềm quản lý công nợ
             </h1>
-            <p className="text-white/80 text-sm mt-1.5 max-w-xl">
-              Nền tảng quản lý công nợ toàn diện — theo dõi, phân tích và kiểm
-              soát dòng tiền doanh nghiệp một cách chính xác, minh bạch.
-            </p>
+            <h1 className="text-white text-2xl font-bold leading-tight">
+              Công ty TNHH MWConnect Việt Nam
+            </h1>
           </div>
         </div>
       </div>
@@ -145,68 +100,48 @@ function GuestView() {
             Giới thiệu công ty
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            <strong className="text-foreground">Công ty TTH</strong> được thành
-            lập với sứ mệnh cung cấp các giải pháp quản lý tài chính và công nợ
-            hiệu quả cho doanh nghiệp Việt Nam. Với đội ngũ chuyên gia giàu kinh
-            nghiệm trong lĩnh vực kế toán và công nghệ thông tin, chúng tôi
-            không ngừng phát triển các công cụ hỗ trợ doanh nghiệp kiểm soát
-            dòng tiền, giảm thiểu rủi ro nợ xấu và tối ưu hóa quy trình thu chi.
+            <strong className="text-foreground">
+              Công ty TNHH MWConnect Việt Nam
+            </strong>{" "}
+            là doanh nghiệp chuyên sản xuất thiết bị điện, máy biến thế và hệ
+            thống điều khiển tại KCN Quế Võ III, Bắc Ninh. Thành lập từ cuối năm
+            2024, đơn vị tập trung cung cấp các giải pháp kỹ thuật chất lượng
+            cao phục vụ nhu cầu hạ tầng công nghiệp hiện đại. Với quy mô vận
+            hành chuyên nghiệp, MWConnect hiện là đối tác sản xuất tiềm năng
+            trong chuỗi cung ứng thiết bị điện tại khu vực phía Bắc.
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Hệ thống quản lý công nợ TTH cho phép theo dõi toàn bộ vòng đời của
-            hóa đơn — từ lúc phát sinh đến khi thanh toán hoàn tất — đồng thời
-            cung cấp báo cáo phân tích tuổi nợ, cảnh báo quá hạn tự động và nhật
-            ký kiểm toán đầy đủ.
+            Phần mềm quản lý công nợ MWConnect cho phép theo dõi toàn bộ vòng
+            đời của hóa đơn — từ lúc phát sinh đến khi thanh toán hoàn tất —
+            đồng thời cung cấp báo cáo phân tích tuổi nợ, cảnh báo quá hạn tự
+            động và nhật ký kiểm toán đầy đủ.
           </p>
-          <div className="grid grid-cols-3 gap-4 pt-2">
-            {[
-              { value: "500+", label: "Doanh nghiệp tin dùng" },
-              { value: "99.9%", label: "Uptime hệ thống" },
-              { value: "24/7", label: "Hỗ trợ kỹ thuật" },
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <p className="text-xl font-bold text-primary">{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {s.label}
-                </p>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6 space-y-4">
           <h2 className="font-semibold text-base text-card-foreground">
-            Thông tin liên hệ
+            Thông tin
           </h2>
           <ul className="space-y-3 text-sm">
             <li className="flex items-start gap-3">
               <MapPin size={16} className="text-primary mt-0.5 shrink-0" />
-              <span className="text-muted-foreground">
-                123 Đường Nguyễn Văn Linh, Quận 7, TP. Hồ Chí Minh
-              </span>
+              <span className="text-muted-foreground">Trịnh Thị Huyền</span>
             </li>
             <li className="flex items-center gap-3">
               <Phone size={16} className="text-primary shrink-0" />
-              <span className="text-muted-foreground">028 3456 7890</span>
+              <span className="text-muted-foreground">Lớp: CQ60/41.04</span>
             </li>
             <li className="flex items-center gap-3">
               <Mail size={16} className="text-primary shrink-0" />
-              <span className="text-muted-foreground">contact@tth.com.vn</span>
+              <span className="text-muted-foreground">
+                Giảng viên hướng dẫn: ThS Hoàng Hải Xanh
+              </span>
             </li>
-            <li className="flex items-center gap-3">
+            {/* <li className="flex items-center gap-3">
               <Globe size={16} className="text-primary shrink-0" />
               <span className="text-muted-foreground">www.tth.com.vn</span>
-            </li>
+            </li> */}
           </ul>
-          <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Giờ làm việc:</span>
-              <br />
-              Thứ 2 – Thứ 6: 8:00 – 17:30
-              <br />
-              Thứ 7: 8:00 – 12:00
-            </p>
-          </div>
         </div>
       </div>
 
@@ -246,44 +181,88 @@ function statusBadgeClass(status: string) {
 
 function statusLabel(status: string) {
   if (status === "overdue") return "Quá hạn";
-  if (status === "partial") return "TT 1 phần";
+  if (status === "cancelled") return "Đã hủy";
   return "Chưa TT";
 }
 
+function formatVND(amount: number): string {
+  if (amount >= 1_000_000_000)
+    return `${(amount / 1_000_000_000).toFixed(2)} tỷ`;
+  if (amount >= 1_000_000) return `${Math.round(amount / 1_000_000)} tr`;
+  return amount.toLocaleString("vi-VN");
+}
+
 function AuthenticatedView() {
+  const { session } = useAuth();
+  const token = session?.access_token ?? "";
+
+  const { data, isLoading, isError, error } = useQuery<DashboardStats>({
+    queryKey: ["dashboard", token],
+    queryFn: () => api.report.getDashboard(token).then((r) => r.data),
+    enabled: !!token,
+    staleTime: 60_000,
+  });
+
+  const netAR = (data?.totalAR ?? 0) - (data?.totalAP ?? 0);
+  const monthlyData = data?.monthlyData ?? [];
+  const arAging = data?.arAging ?? [];
+  const recentRows = data?.recentInvoices ?? [];
+  const hasAnyData =
+    monthlyData.length > 0 ||
+    arAging.length > 0 ||
+    recentRows.length > 0 ||
+    (data?.totalAR ?? 0) > 0 ||
+    (data?.totalAP ?? 0) > 0 ||
+    (data?.overdueAR ?? 0) > 0;
+
   return (
     <div className="space-y-6">
+      {isError && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm">
+          Không tải được dữ liệu Dashboard
+          {error instanceof Error ? `: ${error.message}` : ""}
+        </div>
+      )}
+
+      {!isLoading && !isError && !hasAnyData && (
+        <div className="bg-card rounded-lg border border-border px-4 py-6 text-center text-muted-foreground text-sm">
+          Chưa có dữ liệu dashboard cho tài khoản hiện tại.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Tổng nợ phải thu"
-          value="2.85 tỷ"
-          change="+12% so tháng trước"
-          changeType="up"
+          value={isLoading ? "..." : formatVND(data?.totalAR ?? 0)}
+          change="Tổng dư nợ AR"
+          changeType="neutral"
           icon={ArrowDownCircle}
           color="primary"
         />
         <KPICard
           title="Tổng nợ phải trả"
-          value="1.92 tỷ"
-          change="-5% so tháng trước"
-          changeType="down"
+          value={isLoading ? "..." : formatVND(data?.totalAP ?? 0)}
+          change="Tổng dư nợ AP"
+          changeType="neutral"
           icon={ArrowUpCircle}
           color="info"
         />
         <KPICard
           title="Nợ quá hạn"
-          value="485 tr"
-          change="8 hóa đơn"
+          value={isLoading ? "..." : formatVND(data?.overdueAR ?? 0)}
+          change={
+            isLoading ? "..." : `${data?.overdueARCount ?? 0} hóa đơn quá hạn`
+          }
           changeType="neutral"
           icon={AlertTriangle}
           color="destructive"
         />
         <KPICard
-          title="Thu ròng tháng này"
-          value="780 tr"
-          change="+18% so tháng trước"
-          changeType="up"
-          icon={Wallet}
+          title="Công nợ ròng"
+          value={isLoading ? "..." : formatVND(Math.abs(netAR))}
+          change={netAR >= 0 ? "Thặng dư thu" : "Thâm hụt thu"}
+          changeType={netAR >= 0 ? "up" : "down"}
+          icon={netAR >= 0 ? ArrowDownCircle : ArrowUpCircle}
           color="success"
         />
       </div>
@@ -294,7 +273,7 @@ function AuthenticatedView() {
             Dòng tiền theo tháng (triệu VNĐ)
           </h3>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={cashflowData}>
+            <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,15%,88%)" />
               <XAxis dataKey="month" fontSize={12} />
               <YAxis fontSize={12} />
@@ -318,6 +297,11 @@ function AuthenticatedView() {
               />
             </LineChart>
           </ResponsiveContainer>
+          {!isLoading && monthlyData.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Chưa có dữ liệu dòng tiền.
+            </p>
+          )}
         </div>
 
         <div className="bg-card rounded-lg border border-border p-5">
@@ -325,7 +309,7 @@ function AuthenticatedView() {
             Phân tích tuổi nợ phải thu (triệu VNĐ)
           </h3>
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={overdueData}>
+            <BarChart data={arAging}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,15%,88%)" />
               <XAxis dataKey="range" fontSize={11} />
               <YAxis fontSize={12} />
@@ -338,18 +322,23 @@ function AuthenticatedView() {
               />
             </BarChart>
           </ResponsiveContainer>
+          {!isLoading && arAging.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Chưa có dữ liệu tuổi nợ.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="bg-card rounded-lg border border-border p-5">
         <h3 className="font-semibold text-card-foreground mb-4">
-          Hóa đơn sắp đến hạn
+          Hóa đơn gần nhất
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left py-2.5 font-medium">Mã HĐ</th>
+                <th className="text-left py-2.5 font-medium">Số chứng từ</th>
                 <th className="text-left py-2.5 font-medium">Đối tác</th>
                 <th className="text-right py-2.5 font-medium">Số tiền (VNĐ)</th>
                 <th className="text-left py-2.5 font-medium">Hạn TT</th>
@@ -357,24 +346,56 @@ function AuthenticatedView() {
               </tr>
             </thead>
             <tbody>
-              {recentInvoices.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="border-b border-border/50 hover:bg-secondary/30"
-                >
-                  <td className="py-2.5 font-medium text-primary">{inv.id}</td>
-                  <td className="py-2.5">{inv.partner}</td>
-                  <td className="py-2.5 text-right font-mono">{inv.amount}</td>
-                  <td className="py-2.5">{inv.due}</td>
-                  <td className="py-2.5">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass(inv.status)}`}
-                    >
-                      {statusLabel(inv.status)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {(() => {
+                if (isLoading)
+                  return (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="py-6 text-center text-muted-foreground text-xs"
+                      >
+                        Đang tải...
+                      </td>
+                    </tr>
+                  );
+                if (recentRows.length === 0)
+                  return (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="py-6 text-center text-muted-foreground text-xs"
+                      >
+                        Chưa có hóa đơn nào
+                      </td>
+                    </tr>
+                  );
+                return recentRows.map((inv) => (
+                  <tr
+                    key={inv.id}
+                    className="border-b border-border/50 hover:bg-secondary/30"
+                  >
+                    <td className="py-2.5 font-medium text-primary">
+                      {inv.voucherNumber}
+                    </td>
+                    <td className="py-2.5">{inv.partner}</td>
+                    <td className="py-2.5 text-right font-mono">
+                      {inv.grandTotal}
+                    </td>
+                    <td className="py-2.5">
+                      {inv.dueDate
+                        ? new Date(inv.dueDate).toLocaleDateString("vi-VN")
+                        : "—"}
+                    </td>
+                    <td className="py-2.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusBadgeClass(inv.status)}`}
+                      >
+                        {statusLabel(inv.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ));
+              })()}
             </tbody>
           </table>
         </div>

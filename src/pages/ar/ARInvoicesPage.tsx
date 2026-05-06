@@ -89,12 +89,18 @@ function toIsoDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+function getInvoiceStatusText(status: InvoiceStatus): string {
+  if (status === "ISSUED") return "Đã phát hành";
+  if (status === "CANCELLED") return "Đã hủy";
+  return "Hóa đơn mới";
+}
+
 // suppress unused-type warning
 type _Used = SalesInvoiceListItem;
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
-function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+function InvoiceStatusBadge({ status }: Readonly<{ status: InvoiceStatus }>) {
   const map: Record<InvoiceStatus, { label: string; className: string }> = {
     DRAFT: {
       label: "Hóa đơn mới",
@@ -118,7 +124,7 @@ function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   );
 }
 
-function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
+function VoucherStatusBadge({ isPosted }: Readonly<{ isPosted: boolean }>) {
   if (isPosted)
     return (
       <Badge
@@ -144,11 +150,11 @@ function SortIcon({
   field,
   sortBy,
   sortDir,
-}: {
+}: Readonly<{
   field: string;
   sortBy: string;
   sortDir: "asc" | "desc";
-}) {
+}>) {
   if (sortBy !== field)
     return <ArrowUpDown size={12} className="ml-1 opacity-40" />;
   return sortDir === "asc" ? (
@@ -160,7 +166,7 @@ function SortIcon({
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
-function InvoiceLineTab({ invoice }: { invoice: SalesInvoiceFull }) {
+function InvoiceLineTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
   const totalQty = invoice.details.reduce(
     (s, d) => s + Number.parseFloat(d.qty),
     0,
@@ -324,11 +330,7 @@ function exportToCsv(rows: SalesInvoiceListItem[]) {
     r.invoiceNumber ?? "—",
     r.invoiceSeries ?? "—",
     "Hóa đơn GTGT",
-    r.invoiceStatus === "ISSUED"
-      ? "Đã phát hành"
-      : r.invoiceStatus === "CANCELLED"
-        ? "Đã hủy"
-        : "Hóa đơn mới",
+    getInvoiceStatusText(r.invoiceStatus),
     r.customer.name,
     r.totalAmount,
     r.vatAmount,
@@ -519,6 +521,7 @@ function SendInvoiceDialog({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export default function ARInvoicesPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -618,8 +621,12 @@ export default function ARInvoicesPage() {
   // Detail query
   const { data: detailData, isLoading: detailLoading } = useQuery({
     queryKey: ["sales-invoice", selectedId, token],
-    queryFn: () =>
-      api.salesInvoice.getById(selectedId!, token).then((r) => r.data),
+    queryFn: async () => {
+      if (!selectedId) {
+        throw new Error("Missing invoice id");
+      }
+      return api.salesInvoice.getById(selectedId, token).then((r) => r.data);
+    },
     enabled: !!token && !!selectedId,
     staleTime: 60_000,
   });
@@ -688,7 +695,7 @@ export default function ARInvoicesPage() {
 
   function handleApplyFilter() {
     setAppliedStatus(
-      pendingStatus !== "all" ? (pendingStatus as InvoiceStatus) : undefined,
+      pendingStatus === "all" ? undefined : (pendingStatus as InvoiceStatus),
     );
     setAppliedDateFrom(pendingDateFrom || undefined);
     setAppliedDateTo(pendingDateTo || undefined);
@@ -708,6 +715,253 @@ export default function ARInvoicesPage() {
     appliedStatus !== undefined,
     appliedDateFrom !== undefined,
   ].filter(Boolean).length;
+
+  let listContent: React.ReactNode;
+  if (isLoading) {
+    listContent = (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  } else if (isError) {
+    listContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
+        <AlertCircle size={24} />
+        <p className="text-sm">Không thể tải danh sách.</p>
+        <Button size="sm" variant="outline" onClick={() => refetch()}>
+          Thử lại
+        </Button>
+      </div>
+    );
+  } else {
+    listContent = (
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+            <tr className="border-b border-border">
+              <th className="w-10 px-3 py-2 text-left">
+                <Checkbox
+                  checked={someChecked ? "indeterminate" : allChecked}
+                  onCheckedChange={(c) => toggleAll(!!c)}
+                />
+              </th>
+              <th
+                className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28 cursor-pointer hover:text-foreground select-none"
+                onClick={() => toggleSort("accountingDate")}
+              >
+                <span className="inline-flex items-center">
+                  Ngày hóa đơn
+                  <SortIcon
+                    field="accountingDate"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-40">
+                Số hóa đơn
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-24">
+                Loại
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-32">
+                Trạng thái HĐ
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                Khách hàng
+              </th>
+              <th
+                className="px-3 py-2 text-right font-medium text-muted-foreground text-xs whitespace-nowrap w-36 cursor-pointer hover:text-foreground select-none"
+                onClick={() => toggleSort("grandTotal")}
+              >
+                <span className="inline-flex items-center justify-end w-full">
+                  Giá trị HĐ
+                  <SortIcon
+                    field="grandTotal"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                TT lập CT
+              </th>
+              <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs whitespace-nowrap w-36">
+                Chức năng
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="px-3 py-12 text-center text-muted-foreground text-sm"
+                >
+                  Không có chứng từ nào có lập hóa đơn trong kỳ này.
+                </td>
+              </tr>
+            ) : (
+              filteredRows.map((inv) => (
+                <tr
+                  key={inv.id}
+                  onClick={() => setSelectedId(inv.id)}
+                  className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-muted/40 ${selectedId === inv.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
+                >
+                  <td
+                    className="px-3 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selectedIds.has(inv.id)}
+                      onCheckedChange={(c) => toggleRow(inv.id, !!c)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {fmtDate(inv.accountingDate)}
+                  </td>
+                  <td className="px-3 py-2">
+                    {inv.invoiceNumber ? (
+                      <span className="text-primary font-medium text-xs">
+                        {inv.invoiceNumber}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">
+                        Chưa có
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                    HĐ GTGT
+                  </td>
+                  <td className="px-3 py-2">
+                    <InvoiceStatusBadge status={inv.invoiceStatus} />
+                  </td>
+                  <td className="px-3 py-2 text-xs">{inv.customer.name}</td>
+                  <td className="px-3 py-2 text-right text-xs font-mono font-medium">
+                    {fmtVND(inv.grandTotal)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <VoucherStatusBadge isPosted={inv.isPosted} />
+                  </td>
+                  <td
+                    className="px-3 py-2 text-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {inv.invoiceStatus === "ISSUED" ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs gap-1 text-primary hover:text-primary"
+                          >
+                            Xem <ChevronDown size={12} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              navigate(`/sales/invoices/${inv.id}`)
+                            }
+                          >
+                            Xem chứng từ
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setSendTarget(inv.id)}
+                          >
+                            <Mail size={12} className="mr-1.5" />
+                            Gửi hóa đơn
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              navigate(`/ar/invoices/${inv.id}/print`)
+                            }
+                          >
+                            <Printer size={12} className="mr-1.5" />
+                            Tải hóa đơn
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            disabled={issuingId === inv.id}
+                          >
+                            {issuingId === inv.id ? (
+                              <>
+                                <Loader2 size={12} className="animate-spin" />
+                                Đang phát hành…
+                              </>
+                            ) : (
+                              <>
+                                <SendHorizontal size={12} />
+                                Phát hành <ChevronDown size={12} />
+                              </>
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={issuingId === inv.id}
+                            onClick={() => handleIssueInvoice(inv.id)}
+                          >
+                            <SendHorizontal size={12} className="mr-1.5" />
+                            Phát hành HĐ
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() =>
+                              navigate(`/sales/invoices/${inv.id}`)
+                            }
+                          >
+                            Xem chứng từ
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(inv.id)}
+                          >
+                            <Trash2 size={12} className="mr-1.5" />
+                            Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {filteredRows.length > 0 && (
+            <tfoot className="sticky bottom-0 bg-muted/90 backdrop-blur-sm">
+              <tr className="border-t-2 border-border font-semibold text-xs">
+                <td className="px-3 py-2" colSpan={2}>
+                  Tổng: {filteredRows.length} hóa đơn
+                </td>
+                <td colSpan={3} />
+                <td className="px-3 py-2 text-right font-mono">
+                  {fmtVND(totalAmt + totalVat)}
+                </td>
+                <td colSpan={3} />
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    );
+  }
+
+  const totalRecords = search.trim()
+    ? filteredRows.length
+    : (listData?.total ?? 0);
+  const recordCountText =
+    selectedIds.size > 0
+      ? `Đã chọn ${selectedIds.size} / ${filteredRows.length}`
+      : `${totalRecords} bản ghi`;
 
   // Actions
   async function handleIssueInvoice(id: string) {
@@ -897,252 +1151,12 @@ export default function ARInvoicesPage() {
           )}
 
           {/* Content */}
-          {isLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : isError ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
-              <AlertCircle size={24} />
-              <p className="text-sm">Không thể tải danh sách.</p>
-              <Button size="sm" variant="outline" onClick={() => refetch()}>
-                Thử lại
-              </Button>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-                  <tr className="border-b border-border">
-                    <th className="w-10 px-3 py-2 text-left">
-                      <Checkbox
-                        checked={someChecked ? "indeterminate" : allChecked}
-                        onCheckedChange={(c) => toggleAll(!!c)}
-                      />
-                    </th>
-                    <th
-                      className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28 cursor-pointer hover:text-foreground select-none"
-                      onClick={() => toggleSort("accountingDate")}
-                    >
-                      <span className="inline-flex items-center">
-                        Ngày hóa đơn
-                        <SortIcon
-                          field="accountingDate"
-                          sortBy={sortBy}
-                          sortDir={sortDir}
-                        />
-                      </span>
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-40">
-                      Số hóa đơn
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-24">
-                      Loại
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-32">
-                      Trạng thái HĐ
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
-                      Khách hàng
-                    </th>
-                    <th
-                      className="px-3 py-2 text-right font-medium text-muted-foreground text-xs whitespace-nowrap w-36 cursor-pointer hover:text-foreground select-none"
-                      onClick={() => toggleSort("grandTotal")}
-                    >
-                      <span className="inline-flex items-center justify-end w-full">
-                        Giá trị HĐ
-                        <SortIcon
-                          field="grandTotal"
-                          sortBy={sortBy}
-                          sortDir={sortDir}
-                        />
-                      </span>
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      TT lập CT
-                    </th>
-                    <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs whitespace-nowrap w-36">
-                      Chức năng
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="px-3 py-12 text-center text-muted-foreground text-sm"
-                      >
-                        Không có chứng từ nào có lập hóa đơn trong kỳ này.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRows.map((inv) => (
-                      <tr
-                        key={inv.id}
-                        onClick={() => setSelectedId(inv.id)}
-                        className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-muted/40 ${selectedId === inv.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
-                      >
-                        <td
-                          className="px-3 py-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={selectedIds.has(inv.id)}
-                            onCheckedChange={(c) => toggleRow(inv.id, !!c)}
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {fmtDate(inv.accountingDate)}
-                        </td>
-                        <td className="px-3 py-2">
-                          {inv.invoiceNumber ? (
-                            <span className="text-primary font-medium text-xs">
-                              {inv.invoiceNumber}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">
-                              Chưa có
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                          HĐ GTGT
-                        </td>
-                        <td className="px-3 py-2">
-                          <InvoiceStatusBadge status={inv.invoiceStatus} />
-                        </td>
-                        <td className="px-3 py-2 text-xs">
-                          {inv.customer.name}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs font-mono font-medium">
-                          {fmtVND(inv.grandTotal)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <VoucherStatusBadge isPosted={inv.isPosted} />
-                        </td>
-                        <td
-                          className="px-3 py-2 text-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {inv.invoiceStatus === "ISSUED" ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs gap-1 text-primary hover:text-primary"
-                                >
-                                  Xem <ChevronDown size={12} />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    navigate(`/sales/invoices/${inv.id}`)
-                                  }
-                                >
-                                  Xem chứng từ
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setSendTarget(inv.id)}
-                                >
-                                  <Mail size={12} className="mr-1.5" />
-                                  Gửi hóa đơn
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    navigate(`/ar/invoices/${inv.id}/print`)
-                                  }
-                                >
-                                  <Printer size={12} className="mr-1.5" />
-                                  Tải hóa đơn
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-xs gap-1"
-                                  disabled={issuingId === inv.id}
-                                >
-                                  {issuingId === inv.id ? (
-                                    <>
-                                      <Loader2
-                                        size={12}
-                                        className="animate-spin"
-                                      />
-                                      Đang phát hành…
-                                    </>
-                                  ) : (
-                                    <>
-                                      <SendHorizontal size={12} />
-                                      Phát hành <ChevronDown size={12} />
-                                    </>
-                                  )}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  disabled={issuingId === inv.id}
-                                  onClick={() => handleIssueInvoice(inv.id)}
-                                >
-                                  <SendHorizontal
-                                    size={12}
-                                    className="mr-1.5"
-                                  />
-                                  Phát hành HĐ
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    navigate(`/sales/invoices/${inv.id}`)
-                                  }
-                                >
-                                  Xem chứng từ
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => setDeleteTarget(inv.id)}
-                                >
-                                  <Trash2 size={12} className="mr-1.5" />
-                                  Xóa
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                {filteredRows.length > 0 && (
-                  <tfoot className="sticky bottom-0 bg-muted/90 backdrop-blur-sm">
-                    <tr className="border-t-2 border-border font-semibold text-xs">
-                      <td className="px-3 py-2" colSpan={2}>
-                        Tổng: {filteredRows.length} hóa đơn
-                      </td>
-                      <td colSpan={3} />
-                      <td className="px-3 py-2 text-right font-mono">
-                        {fmtVND(totalAmt + totalVat)}
-                      </td>
-                      <td colSpan={3} />
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          )}
+          {listContent}
 
           {/* Pagination bar */}
           <div className="px-4 py-1.5 border-t border-border bg-card flex items-center justify-between shrink-0">
             <span className="text-xs text-muted-foreground">
-              {selectedIds.size > 0
-                ? `Đã chọn ${selectedIds.size} / ${filteredRows.length}`
-                : `${search.trim() ? filteredRows.length : (listData?.total ?? 0)} bản ghi`}
+              {recordCountText}
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
@@ -1182,11 +1196,7 @@ export default function ARInvoicesPage() {
           minSize={20}
           className="flex flex-col overflow-hidden bg-card"
         >
-          {!selectedId ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              Chọn một hóa đơn để xem chi tiết
-            </div>
-          ) : (
+          {selectedId ? (
             <>
               <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap text-xs bg-card">
                 {selectedItem ? (
@@ -1249,6 +1259,10 @@ export default function ARInvoicesPage() {
                 )}
               </div>
             </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              Chọn một hóa đơn để xem chi tiết
+            </div>
           )}
         </ResizablePanel>
       </ResizablePanelGroup>

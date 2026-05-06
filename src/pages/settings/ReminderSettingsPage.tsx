@@ -109,24 +109,24 @@ export default function ReminderSettingsPage() {
   }, [accessToken]);
 
   const handleSave = async () => {
-    const hour = parseInt(form.reminderHour, 10);
-    const minute = parseInt(form.reminderMinute, 10);
-    const daysBeforeDue = parseInt(form.defaultDaysBeforeDue, 10);
-    const daysAfterDue = parseInt(form.defaultDaysAfterDue, 10);
+    const hour = Number.parseInt(form.reminderHour, 10);
+    const minute = Number.parseInt(form.reminderMinute, 10);
+    const daysBeforeDue = Number.parseInt(form.defaultDaysBeforeDue, 10);
+    const daysAfterDue = Number.parseInt(form.defaultDaysAfterDue, 10);
 
-    if (isNaN(hour) || hour < 0 || hour > 23) {
+    if (Number.isNaN(hour) || hour < 0 || hour > 23) {
       toast.error("Giờ nhắc phải từ 0 đến 23");
       return;
     }
-    if (isNaN(minute) || minute < 0 || minute > 59) {
+    if (Number.isNaN(minute) || minute < 0 || minute > 59) {
       toast.error("Phút nhắc phải từ 0 đến 59");
       return;
     }
-    if (isNaN(daysBeforeDue) || daysBeforeDue < 0) {
+    if (Number.isNaN(daysBeforeDue) || daysBeforeDue < 0) {
       toast.error("Số ngày nhắc trước hạn không hợp lệ");
       return;
     }
-    if (isNaN(daysAfterDue) || daysAfterDue < 0) {
+    if (Number.isNaN(daysAfterDue) || daysAfterDue < 0) {
       toast.error("Số ngày nhắc sau hạn không hợp lệ");
       return;
     }
@@ -395,24 +395,32 @@ export default function ReminderSettingsPage() {
                       {runResult.details.map((d, i) => {
                         const isSent = d.result.startsWith("sent");
                         const isError = d.result.startsWith("error");
+                        let statusIcon: React.ReactNode;
+                        if (isSent) {
+                          statusIcon = (
+                            <CheckCircle2
+                              size={12}
+                              className="mt-0.5 shrink-0 text-green-500"
+                            />
+                          );
+                        } else if (isError) {
+                          statusIcon = (
+                            <XCircle
+                              size={12}
+                              className="mt-0.5 shrink-0 text-destructive"
+                            />
+                          );
+                        } else {
+                          statusIcon = (
+                            <span className="mt-0.5 shrink-0 w-3 h-3 rounded-full bg-muted-foreground/30" />
+                          );
+                        }
                         return (
                           <div
-                            key={i}
+                            key={`${d.partnerCode}-${d.result}-${i}`}
                             className="flex items-start gap-2 px-3 py-2"
                           >
-                            {isSent ? (
-                              <CheckCircle2
-                                size={12}
-                                className="mt-0.5 shrink-0 text-green-500"
-                              />
-                            ) : isError ? (
-                              <XCircle
-                                size={12}
-                                className="mt-0.5 shrink-0 text-destructive"
-                              />
-                            ) : (
-                              <span className="mt-0.5 shrink-0 w-3 h-3 rounded-full bg-muted-foreground/30" />
-                            )}
+                            {statusIcon}
                             <span className="font-mono text-muted-foreground mr-1">
                               {d.partnerCode}
                             </span>
@@ -455,65 +463,69 @@ export default function ReminderSettingsPage() {
         <CardContent>
           {loadingLogs ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
-          ) : logs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Chưa có lịch sử gửi email nhắc nợ
-            </p>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Thời gian</TableHead>
-                    <TableHead>Đối tác</TableHead>
-                    <TableHead>Phạm vi</TableHead>
-                    <TableHead>Email nhận</TableHead>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Lỗi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {log.sentAt
-                          ? new Date(log.sentAt).toLocaleString("vi-VN")
-                          : new Date(log.createdAt).toLocaleString("vi-VN")}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div className="text-sm">{log.partner?.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {log.partner?.code}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {log.scope}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {log.recipientEmail}
-                      </TableCell>
-                      <TableCell className="text-xs max-w-xs truncate">
-                        {log.subject}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={statusVariant(log.status)}
-                          className="text-xs"
-                        >
-                          {log.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-destructive max-w-xs truncate">
-                        {log.errorMessage ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              {logs.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Chưa có lịch sử gửi email nhắc nợ
+                </p>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Thời gian</TableHead>
+                        <TableHead>Đối tác</TableHead>
+                        <TableHead>Phạm vi</TableHead>
+                        <TableHead>Email nhận</TableHead>
+                        <TableHead>Tiêu đề</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Lỗi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {logs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {log.sentAt
+                              ? new Date(log.sentAt).toLocaleString("vi-VN")
+                              : new Date(log.createdAt).toLocaleString("vi-VN")}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <div className="text-sm">{log.partner?.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {log.partner?.code}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {log.scope}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {log.recipientEmail}
+                          </TableCell>
+                          <TableCell className="text-xs max-w-xs truncate">
+                            {log.subject}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={statusVariant(log.status)}
+                              className="text-xs"
+                            >
+                              {log.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-destructive max-w-xs truncate">
+                            {log.errorMessage ?? "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

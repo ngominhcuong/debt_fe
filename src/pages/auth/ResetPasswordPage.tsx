@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,8 +107,8 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center p-8 bg-background">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <Building2 size={24} className="text-primary-foreground" />
+          <div className="mx-auto mb-4">
+            <img src={mwLogo} alt="MWConnect" className="h-12 w-auto mx-auto" />
           </div>
           <h2 className="text-2xl font-bold text-foreground">
             Đặt lại mật khẩu

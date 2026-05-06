@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -64,8 +64,8 @@ export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
-        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5">
-          <Building2 size={28} className="text-primary-foreground" />
+        <div className="mx-auto mb-5">
+          <img src={mwLogo} alt="MWConnect" className="h-14 w-auto mx-auto" />
         </div>
         {error ? (
           <>

@@ -1,3 +1,5 @@
+import { supabase } from "@/lib/supabase";
+
 const API_BASE =
   (import.meta.env.VITE_API_URL as string | undefined) ??
   "http://localhost:4000";
@@ -620,6 +622,7 @@ export interface LedgerLine {
   refType: string;
   docNumber: string | null;
   description: string | null;
+  counterAccountCodes: string;
   partner: { id: string; code: string; name: string } | null;
   debitAmount: number;
   creditAmount: number;
@@ -733,6 +736,36 @@ export interface ClosingPreviewRow {
   closingBalance: number;
 }
 
+export interface DashboardMonthData {
+  month: string;
+  thu: number;
+  chi: number;
+}
+
+export interface DashboardAgingRow {
+  range: string;
+  amount: number;
+}
+
+export interface DashboardRecentInvoice {
+  id: string;
+  voucherNumber: string;
+  partner: string;
+  grandTotal: string;
+  dueDate: string | null;
+  status: "overdue" | "unpaid" | "cancelled";
+}
+
+export interface DashboardStats {
+  totalAR: number;
+  totalAP: number;
+  overdueAR: number;
+  overdueARCount: number;
+  monthlyData: DashboardMonthData[];
+  arAging: DashboardAgingRow[];
+  recentInvoices: DashboardRecentInvoice[];
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message?: string;
@@ -744,20 +777,37 @@ async function request<T>(
   options: RequestInit = {},
   accessToken?: string,
 ): Promise<ApiResponse<T>> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
   const optionHeaders = options.headers as Record<string, string> | undefined;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: optionHeaders ? { ...headers, ...optionHeaders } : headers,
-  });
+  const buildHeaders = (token?: string): Record<string, string> => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return optionHeaders ? { ...headers, ...optionHeaders } : headers;
+  };
+
+  const doFetch = (token?: string) =>
+    fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: buildHeaders(token),
+    });
+
+  let res = await doFetch(accessToken);
+
+  // Retry once after token refresh when the current token is expired.
+  if (res.status === 401 && accessToken) {
+    const { data: refreshed, error } = await supabase.auth.refreshSession();
+    const refreshedToken = refreshed.session?.access_token;
+
+    if (!error && refreshedToken) {
+      res = await doFetch(refreshedToken);
+    }
+  }
 
   const data = (await res.json()) as ApiResponse<T>;
 
@@ -828,6 +878,29 @@ export const api = {
         { method: "POST", body: JSON.stringify(body) },
         accessToken,
       ),
+
+    listUsers: (
+      accessToken: string,
+      params?: {
+        q?: string;
+        role?: "CHIEF_ACCOUNTANT" | "STAFF_ACCOUNTANT";
+        page?: number;
+        limit?: number;
+      },
+    ) => {
+      const p = new URLSearchParams();
+      if (params?.q) p.set("q", params.q);
+      if (params?.role) p.set("role", params.role);
+      if (params?.page) p.set("page", String(params.page));
+      if (params?.limit) p.set("limit", String(params.limit));
+      const suffix = p.toString() ? `?${p.toString()}` : "";
+      return request<{
+        rows: UserProfile[];
+        total: number;
+        page: number;
+        limit: number;
+      }>(`/api/auth/users${suffix}`, {}, accessToken);
+    },
   },
   master: {
     listPartners: (
@@ -1347,6 +1420,9 @@ export const api = {
   },
 
   report: {
+    getDashboard: (accessToken: string) =>
+      request<DashboardStats>("/api/reports/dashboard", {}, accessToken),
+
     getLedger: (
       params: { accountId: string; dateFrom?: string; dateTo?: string },
       accessToken: string,

@@ -7,7 +7,6 @@ import {
   type Partner,
   type Account,
   type SalesInvoiceDetailPayload,
-  type SalesInvoiceFull,
 } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";

@@ -142,7 +142,7 @@ function getFallbackPageMeta(pathname: string) {
     } as const;
   }
 
-  return { title: "DebtFlow", subtitle: "Quản lý công nợ" } as const;
+  return { title: "MWConnect", subtitle: "Quản lý công nợ" } as const;
 }
 
 export default function AppLayout() {

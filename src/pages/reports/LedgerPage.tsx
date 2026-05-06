@@ -1,18 +1,33 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Loader2, ChevronLeft } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  ChevronLeft,
+  Download,
+  Printer,
+  ChevronsUpDown,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { api, type Account } from "@/lib/api";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { api, type Account, type LedgerResult } from "@/lib/api";
+import { openPrintPreviewWindow } from "@/lib/print-preview";
 import { useAuth } from "@/contexts/AuthContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -34,6 +49,230 @@ const REF_TYPE_LABELS: Record<string, string> = {
   PAYMENT: "Chi tiền",
 };
 
+const COMPANY = {
+  name: "CÔNG TY TNHH MWCONNECT VIỆT NAM",
+  address: "Xưởng A1, Lô CN17A-3, Khu công nghiệp Quế Võ III, Bắc Ninh",
+  website: "www.mwconnect.vn",
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function fmtReportAmount(val: number): string {
+  if (val === 0) return "";
+  return new Intl.NumberFormat("vi-VN").format(Math.round(Math.abs(val)));
+}
+
+function reportBalanceColumns(balance: number) {
+  if (balance >= 0) {
+    return { debit: fmtReportAmount(balance), credit: "" };
+  }
+
+  return { debit: "", credit: fmtReportAmount(balance) };
+}
+
+function buildLedgerReportHtml(
+  ledger: LedgerResult,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const opening = reportBalanceColumns(ledger.openingBalance);
+  const closing = reportBalanceColumns(ledger.closingBalance);
+  const periodLabel = `Từ ngày ${dateFrom ? fmtDate(dateFrom) : "đầu kỳ"} đến ngày ${dateTo ? fmtDate(dateTo) : "hiện tại"}`;
+  const rows = ledger.lines
+    .map((line) => {
+      const balance = reportBalanceColumns(line.runningBalance);
+      return `
+        <tr>
+          <td class="text-center text-nowrap">${escapeHtml(fmtDate(line.accountingDate))}</td>
+          <td class="text-center text-nowrap">${escapeHtml(fmtDate(line.accountingDate))}</td>
+          <td class="text-center text-nowrap">${escapeHtml(line.docNumber ?? line.entryNumber)}</td>
+          <td class="text-left">${escapeHtml(line.description ?? "")}</td>
+          <td class="text-center text-nowrap">${escapeHtml(line.counterAccountCodes || "-")}</td>
+          <td class="text-right">${escapeHtml(fmtReportAmount(line.debitAmount))}</td>
+          <td class="text-right">${escapeHtml(fmtReportAmount(line.creditAmount))}</td>
+          <td class="text-right">${escapeHtml(balance.debit)}</td>
+          <td class="text-right">${escapeHtml(balance.credit)}</td>
+        </tr>`;
+    })
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Sổ chi tiết tài khoản ${escapeHtml(ledger.account.code)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 18mm 20mm 16mm 20mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", serif; font-size: 13px; color: #111; margin: 0; padding: 0; }
+    .sheet { width: 100%; }
+    @media screen {
+      body { background: #e8e8e8; }
+      .sheet { background: #fff; max-width: 297mm; margin: 20px auto; padding: 18mm 20mm 16mm 20mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+    }
+    @media print {
+      body { background: none; }
+      .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+    }
+
+    /* ── Company / form-code header ── */
+    .topbar { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    .topbar td { vertical-align: top; padding: 0; }
+    .topbar td:first-child { width: 60%; }
+    .topbar td:last-child  { width: 40%; text-align: right; }
+    .company-name { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+    .company-sub  { font-size: 12px; margin-bottom: 2px; }
+    .form-code    { font-size: 12px; font-weight: 700; line-height: 1.6; }
+    .form-code em { font-style: normal; font-weight: 400; }
+
+    /* ── Document title ── */
+    .title { text-align: center; margin: 6px 0 12px; }
+    .title h1   { margin: 0 0 4px; font-size: 22px; letter-spacing: 1px; text-transform: uppercase; }
+    .title .sub { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+    .title .period { font-size: 13px; font-weight: 400; font-style: italic; }
+
+    /* ── Opening balance ── */
+    .opening { font-size: 13px; font-weight: 700; margin: 0 0 8px; text-align: right; }
+
+    /* ── Ledger table ── */
+    table.ledger { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 12px; }
+    table.ledger th,
+    table.ledger td  { border: 1px solid #555; padding: 5px 7px; font-size: 12px; vertical-align: middle; }
+    table.ledger thead th { background: #dce8f6; text-align: center; font-weight: 700; line-height: 1.4; }
+    table.ledger tbody td { vertical-align: top; }
+    table.ledger .text-left  { text-align: left; }
+    table.ledger .text-right { text-align: right; white-space: nowrap; }
+    table.ledger .text-center { text-align: center; }
+    table.ledger .text-nowrap { white-space: nowrap; }
+    table.ledger tbody tr:nth-child(even) { background: #f7fafd; }
+    table.ledger .sum-row td { font-weight: 700; background: #eef4fb; border-top: 2px solid #555; }
+
+    /* ── Footer note ── */
+    .footer-note { font-size: 12px; line-height: 1.8; margin-bottom: 18px; }
+
+    /* ── Signatures ── */
+    .signatures { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .signatures td { width: 33.33%; text-align: center; vertical-align: top;
+                     font-size: 13px; font-weight: 700; padding: 0 8px; }
+    .signatures .hint  { display: block; font-style: italic; font-weight: 400; font-size: 12px; margin-top: 2px; }
+    .signatures .space { display: block; height: 64px; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+
+    <table class="topbar">
+      <tr>
+        <td>
+          <div class="company-name">${escapeHtml(COMPANY.name)}</div>
+          <div class="company-sub">${escapeHtml(COMPANY.address)}</div>
+          <div class="company-sub">${escapeHtml(COMPANY.website)}</div>
+        </td>
+        <td>
+          <div class="form-code">
+            Mẫu số S38-DN<br />
+            <em>(Ban hành theo Thông tư số 200/2014/TT-BTC<br />ngày 22/12/2014 của Bộ Tài chính)</em>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="title">
+      <h1>Sổ Chi Tiết Tài Khoản</h1>
+      <div class="sub">Tài khoản: ${escapeHtml(ledger.account.code)} – ${escapeHtml(ledger.account.name)}</div>
+      <div class="period">${escapeHtml(periodLabel)}</div>
+    </div>
+
+    <div class="opening">Số dư đầu kỳ:&nbsp; ${escapeHtml(opening.debit || opening.credit || "0")}</div>
+
+    <table class="ledger">
+      <colgroup>
+        <col style="width: 9%"  /><!-- Ngày ghi sổ -->
+        <col style="width: 9%"  /><!-- CT Ngày -->
+        <col style="width: 15%" /><!-- CT Số -->
+        <col style="width: 29%" /><!-- Diễn giải -->
+        <col style="width: 10%" /><!-- TK đối ứng -->
+        <col style="width: 8%"  /><!-- PS Nợ -->
+        <col style="width: 8%"  /><!-- PS Có -->
+        <col style="width: 6%"  /><!-- Dư Nợ -->
+        <col style="width: 6%"  /><!-- Dư Có -->
+      </colgroup>
+      <thead>
+        <tr>
+          <th rowspan="2">Ngày<br />ghi sổ</th>
+          <th colspan="2">Chứng từ</th>
+          <th rowspan="2">Diễn giải</th>
+          <th rowspan="2">TK<br />đối ứng</th>
+          <th colspan="2">Số phát sinh</th>
+          <th colspan="2">Số dư</th>
+        </tr>
+        <tr>
+          <th>Ngày</th>
+          <th>Số</th>
+          <th>Nợ</th>
+          <th>Có</th>
+          <th>Nợ</th>
+          <th>Có</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="9" class="text-center" style="padding: 10px;">Không có phát sinh trong kỳ</td></tr>'}
+        <tr class="sum-row">
+          <td colspan="5" class="text-right">Tổng cộng phát sinh trong kỳ</td>
+          <td class="text-right">${escapeHtml(fmtReportAmount(ledger.totalDebit))}</td>
+          <td class="text-right">${escapeHtml(fmtReportAmount(ledger.totalCredit))}</td>
+          <td class="text-right">${escapeHtml(closing.debit)}</td>
+          <td class="text-right">${escapeHtml(closing.credit)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-note">
+      Sổ này có 01 trang, đánh số từ trang số 01 đến trang 01<br />
+      Ngày mở sổ: ${escapeHtml(dateFrom ? fmtDate(dateFrom) : fmtDate(new Date().toISOString()))}
+    </div>
+
+    <table class="signatures">
+      <tr>
+        <td>NGƯỜI GHI SỔ<span class="hint">(Ký, họ tên)</span></td>
+        <td>KẾ TOÁN TRƯỞNG<span class="hint">(Ký, họ tên)</span></td>
+        <td>NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT<span class="hint">(Ký, họ tên, đóng dấu)</span></td>
+      </tr>
+      <tr>
+        <td><span class="space"></span></td>
+        <td><span class="space"></span></td>
+        <td><span class="space"></span></td>
+      </tr>
+    </table>
+
+  </div>
+</body>
+</html>`;
+}
+
+function openLedgerPrintPreview(
+  ledger: LedgerResult,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const html = buildLedgerReportHtml(ledger, dateFrom, dateTo);
+  openPrintPreviewWindow(html, `So chi tiet tai khoan ${ledger.account.code}`);
+}
+
+function downloadLedgerReport(
+  ledger: LedgerResult,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  openLedgerPrintPreview(ledger, dateFrom, dateTo);
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LedgerPage() {
@@ -41,10 +280,10 @@ export default function LedgerPage() {
   const token = session?.access_token ?? "";
 
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [accountOpen, setAccountOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searched, setSearched] = useState(false);
-  const [accountSearch, setAccountSearch] = useState("");
 
   const accountsQuery = useQuery({
     queryKey: ["accounts-all", token],
@@ -54,13 +293,7 @@ export default function LedgerPage() {
     staleTime: 120_000,
   });
   const allAccounts: Account[] = accountsQuery.data ?? [];
-  const filteredAccounts = accountSearch.trim()
-    ? allAccounts.filter(
-        (a) =>
-          a.code.toLowerCase().includes(accountSearch.toLowerCase()) ||
-          a.name.toLowerCase().includes(accountSearch.toLowerCase()),
-      )
-    : allAccounts;
+  const selectedAccount = allAccounts.find((a) => a.id === selectedAccountId);
 
   const ledgerQuery = useQuery({
     queryKey: ["ledger", selectedAccountId, dateFrom, dateTo, token],
@@ -95,30 +328,69 @@ export default function LedgerPage() {
           <Label className="text-xs mb-1 block">
             Tài khoản <span className="text-destructive">*</span>
           </Label>
-          <Select
-            value={selectedAccountId}
-            onValueChange={setSelectedAccountId}
-          >
-            <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="Chọn tài khoản..." />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <div className="px-2 py-1.5 sticky top-0 bg-background border-b">
-                <Input
-                  className="h-7 text-xs"
+          <Popover open={accountOpen} onOpenChange={setAccountOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={accountOpen}
+                className="h-8 text-sm w-full justify-between font-normal"
+              >
+                {selectedAccount ? (
+                  <span className="truncate text-left">
+                    <span className="font-mono text-primary mr-1">
+                      {selectedAccount.code}
+                    </span>
+                    — {selectedAccount.name}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    Chọn tài khoản...
+                  </span>
+                )}
+                <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="p-0 w-[var(--radix-popover-trigger-width)]"
+              align="start"
+            >
+              <Command>
+                <CommandInput
                   placeholder="Tìm theo mã hoặc tên..."
-                  value={accountSearch}
-                  onChange={(e) => setAccountSearch(e.target.value)}
+                  className="h-8 text-xs"
                 />
-              </div>
-              {filteredAccounts.slice(0, 200).map((a) => (
-                <SelectItem key={a.id} value={a.id} className="text-xs">
-                  <span className="font-mono text-primary mr-1">{a.code}</span>{" "}
-                  — {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                <CommandList>
+                  <CommandEmpty>Không tìm thấy tài khoản.</CommandEmpty>
+                  <CommandGroup>
+                    {allAccounts.slice(0, 200).map((a) => (
+                      <CommandItem
+                        key={a.id}
+                        value={`${a.code} ${a.name}`}
+                        onSelect={() => {
+                          setSelectedAccountId(a.id);
+                          setAccountOpen(false);
+                        }}
+                        className="text-xs"
+                      >
+                        <Check
+                          className={
+                            selectedAccountId === a.id
+                              ? "mr-1 h-3.5 w-3.5 opacity-100"
+                              : "mr-1 h-3.5 w-3.5 opacity-0"
+                          }
+                        />
+                        <span className="font-mono text-primary mr-1">
+                          {a.code}
+                        </span>
+                        — {a.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div>
@@ -155,14 +427,26 @@ export default function LedgerPage() {
         </Button>
 
         {ledger && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8"
-            onClick={() => window.print()}
-          >
-            In sổ
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => openLedgerPrintPreview(ledger, dateFrom, dateTo)}
+            >
+              <Printer size={13} />
+              In sổ
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => downloadLedgerReport(ledger, dateFrom, dateTo)}
+            >
+              <Download size={13} />
+              Tải về
+            </Button>
+          </div>
         )}
       </div>
 
@@ -205,8 +489,9 @@ export default function LedgerPage() {
             <table className="w-full text-sm min-w-[860px]">
               <thead>
                 <tr className="bg-muted/60 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  <th className="text-left px-3 py-2 w-24">Ngày</th>
-                  <th className="text-left px-3 py-2 w-32">Chứng từ</th>
+                  <th className="text-left px-3 py-2 w-28">Ngày</th>
+                  <th className="text-left px-3 py-2 w-44">Chứng từ</th>
+                  <th className="text-left px-3 py-2 w-28">Tk đối ứng</th>
                   <th className="text-left px-3 py-2 w-24">Loại</th>
                   <th className="text-left px-3 py-2">Diễn giải</th>
                   <th className="text-left px-3 py-2 w-36">Đối tượng</th>
@@ -218,7 +503,7 @@ export default function LedgerPage() {
               <tbody>
                 {/* Opening balance */}
                 <tr className="bg-muted/30 font-semibold border-b">
-                  <td className="px-3 py-2 text-xs" colSpan={7}>
+                  <td className="px-3 py-2 text-xs" colSpan={8}>
                     Dư đầu kỳ
                     {dateFrom && (
                       <span className="text-muted-foreground ml-1 font-normal text-xs">
@@ -238,7 +523,7 @@ export default function LedgerPage() {
                 {ledger.lines.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="text-center py-8 text-xs text-muted-foreground"
                     >
                       Không có phát sinh trong kỳ
@@ -250,11 +535,17 @@ export default function LedgerPage() {
                       key={line.id}
                       className="border-b last:border-0 hover:bg-muted/20 transition-colors"
                     >
-                      <td className="px-3 py-1.5 text-xs whitespace-nowrap">
+                      <td className="px-3 py-1.5 text-xs whitespace-nowrap text-center">
                         {fmtDate(line.accountingDate)}
                       </td>
-                      <td className="px-3 py-1.5 text-xs font-medium text-primary whitespace-nowrap">
+                      <td
+                        className="px-3 py-1.5 text-xs font-medium text-primary whitespace-nowrap max-w-[180px] truncate"
+                        title={line.docNumber ?? line.entryNumber}
+                      >
                         {line.docNumber ?? line.entryNumber}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs whitespace-nowrap">
+                        {line.counterAccountCodes || "—"}
                       </td>
                       <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
                         {REF_TYPE_LABELS[line.refType] ?? line.refType}
@@ -288,7 +579,7 @@ export default function LedgerPage() {
                 {/* Period totals */}
                 {ledger.lines.length > 0 && (
                   <tr className="bg-muted/30 font-semibold border-t-2 border-border/60">
-                    <td className="px-3 py-2 text-xs" colSpan={5}>
+                    <td className="px-3 py-2 text-xs" colSpan={6}>
                       Cộng phát sinh kỳ
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs">
@@ -303,7 +594,7 @@ export default function LedgerPage() {
 
                 {/* Closing balance */}
                 <tr className="bg-primary/5 font-bold border-t-2 border-primary/20">
-                  <td className="px-3 py-2 text-xs" colSpan={7}>
+                  <td className="px-3 py-2 text-xs" colSpan={8}>
                     Dư cuối kỳ
                   </td>
                   <td

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 import {
-  Building2,
   BarChart3,
   FileText,
   Shield,
@@ -57,9 +57,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10 px-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 size={16} className="text-primary-foreground" />
-          </div>
+          <img src={mwLogo} alt="MWConnect" className="h-8 w-auto" />
           <span className="font-bold text-foreground text-base">
             Quản lý Công nợ
           </span>
@@ -83,8 +81,8 @@ export default function LandingPage() {
 
         <div className="relative max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary mb-6">
-            <Building2 size={12} />
-            Hệ thống Quản lý Công nợ Doanh nghiệp
+            <img src={mwLogo} alt="" className="h-3 w-auto" />
+            <span>Hệ thống Quản lý Công nợ Doanh nghiệp</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-bold text-foreground leading-tight mb-4">

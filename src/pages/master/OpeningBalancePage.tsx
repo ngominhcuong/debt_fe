@@ -122,8 +122,9 @@ export default function OpeningBalancePage() {
     mutationFn: () => {
       const balances = (period?.openingBalances ?? []).map((row) => ({
         accountId: row.accountId,
-        debitAmount: parseFloat(edits[row.accountId]?.debit || "0") || 0,
-        creditAmount: parseFloat(edits[row.accountId]?.credit || "0") || 0,
+        debitAmount: Number.parseFloat(edits[row.accountId]?.debit || "0") || 0,
+        creditAmount:
+          Number.parseFloat(edits[row.accountId]?.credit || "0") || 0,
       }));
       return api.period.saveBalances(year, month, balances, token);
     },
@@ -419,7 +420,7 @@ export default function OpeningBalancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(previewQuery.data as ClosingPreviewRow[]).map((row) => (
+                  {previewQuery.data.map((row: ClosingPreviewRow) => (
                     <tr
                       key={row.accountId}
                       className="border-b last:border-0 hover:bg-muted/10"

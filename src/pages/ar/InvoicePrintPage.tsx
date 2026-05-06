@@ -422,9 +422,12 @@ function VATInvoice({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
               );
             })}
             {Array.from({ length: padCount }).map((_, i) => (
-              <tr key={`pad-${i}`}>
+              <tr key={`pad-${i + 1}`}>
                 {Array.from({ length: 8 }).map((__, j) => (
-                  <td key={j} style={{ ...TD, height: "6mm" }}>
+                  <td
+                    key={`pad-${i + 1}-col-${j + 1}`}
+                    style={{ ...TD, height: "6mm" }}
+                  >
                     &nbsp;
                   </td>
                 ))}
@@ -442,6 +445,12 @@ function VATInvoice({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
             fontSize: "9.5pt",
           }}
         >
+          <thead style={{ display: "none" }}>
+            <tr>
+              <th scope="col">Nội dung</th>
+              <th scope="col">Giá trị</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
               <td style={{ padding: "1mm 2mm", fontWeight: "bold" }}>
@@ -461,7 +470,7 @@ function VATInvoice({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
             <tr>
               <td style={{ padding: "1mm 2mm" }}>Tổng tiền thuế GTGT:</td>
               <td style={{ padding: "1mm 2mm", textAlign: "right" }}>
-                {primaryVatRate !== null ? `${primaryVatRate} %` : "—"}
+                {primaryVatRate == null ? "—" : `${primaryVatRate} %`}
               </td>
             </tr>
             <tr>
@@ -505,6 +514,12 @@ function VATInvoice({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
 
         {/* ── Signatures ── */}
         <table style={{ width: "100%", borderCollapse: "collapse", flex: 1 }}>
+          <thead style={{ display: "none" }}>
+            <tr>
+              <th scope="col">Người mua hàng</th>
+              <th scope="col">Người bán hàng</th>
+            </tr>
+          </thead>
           <tbody>
             <tr>
               <td
@@ -638,7 +653,7 @@ export default function InvoicePrintPage() {
             <Button
               size="sm"
               className="gap-1.5 text-xs h-8"
-              onClick={() => window.print()}
+              onClick={() => globalThis.print()}
             >
               <Printer size={14} /> In / Tải hóa đơn
             </Button>
@@ -651,18 +666,22 @@ export default function InvoicePrintPage() {
         <div className="flex-1 flex items-center justify-center h-[70vh]">
           <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
         </div>
-      ) : isError || !data ? (
-        <div className="flex flex-col items-center justify-center h-[70vh] gap-3 text-destructive">
-          <AlertCircle size={28} />
-          <p className="text-sm">Không thể tải hóa đơn.</p>
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            Quay lại
-          </Button>
-        </div>
       ) : (
-        <div className="no-print-bg min-h-screen bg-gray-200 py-6 flex justify-center">
-          <VATInvoice invoice={data} />
-        </div>
+        <>
+          {isError || !data ? (
+            <div className="flex flex-col items-center justify-center h-[70vh] gap-3 text-destructive">
+              <AlertCircle size={28} />
+              <p className="text-sm">Không thể tải hóa đơn.</p>
+              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                Quay lại
+              </Button>
+            </div>
+          ) : (
+            <div className="no-print-bg min-h-screen bg-gray-200 py-6 flex justify-center">
+              <VATInvoice invoice={data} />
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Print styles ── */}

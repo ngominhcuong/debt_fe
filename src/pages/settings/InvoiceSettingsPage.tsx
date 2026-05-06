@@ -178,8 +178,113 @@ export default function InvoiceSettingsPage() {
   });
 
   function handleDelete(s: InvoiceSetting) {
-    if (!window.confirm(`Xóa dải hóa đơn ${s.symbol} năm ${s.year}?`)) return;
+    if (!globalThis.confirm(`Xóa dải hóa đơn ${s.symbol} năm ${s.year}?`))
+      return;
     deleteMutation.mutate(s.id);
+  }
+
+  let settingsTableContent: React.ReactNode;
+  if (isLoading) {
+    settingsTableContent = (
+      <TableRow>
+        <TableCell
+          colSpan={8}
+          className="text-center py-8 text-muted-foreground"
+        >
+          Đang tải...
+        </TableCell>
+      </TableRow>
+    );
+  } else if (settings.length === 0) {
+    settingsTableContent = (
+      <TableRow>
+        <TableCell
+          colSpan={8}
+          className="text-center py-8 text-muted-foreground"
+        >
+          Chưa có dải hóa đơn nào. Nhấn "Thêm dải hóa đơn" để bắt đầu.
+        </TableCell>
+      </TableRow>
+    );
+  } else {
+    settingsTableContent = settings.map((s) => (
+      <TableRow key={s.id}>
+        <TableCell className="font-medium">{s.year}</TableCell>
+        <TableCell>
+          <span className="font-mono font-semibold">{s.symbol}</span>
+        </TableCell>
+        <TableCell className="text-muted-foreground text-sm">
+          {s.templateCode === "1" ? "Hóa đơn GTGT" : `Mẫu ${s.templateCode}`}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {s.startNumber.toLocaleString()}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">
+          {s.currentNumber.toLocaleString()}
+        </TableCell>
+        <TableCell className="text-right tabular-nums font-medium">
+          {s.currentNumber > 0 ? String(s.currentNumber).padStart(7, "0") : "—"}
+        </TableCell>
+        <TableCell className="text-center">
+          <div className="flex items-center justify-center gap-2">
+            <Switch
+              checked={s.isActive}
+              onCheckedChange={(v) =>
+                toggleMutation.mutate({ id: s.id, isActive: v })
+              }
+            />
+            {s.isActive ? (
+              <Badge variant="default" className="text-xs">
+                Đang dùng
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">
+                Không dùng
+              </Badge>
+            )}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex gap-1 justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={() => openEdit(s)}
+            >
+              <Pencil size={14} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => handleDelete(s)}
+              disabled={s.currentNumber > 0}
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    ));
+  }
+
+  let symbolHint: React.ReactNode;
+  if (symbolError) {
+    symbolHint = <p className="text-xs text-destructive">{symbolError}</p>;
+  } else if (editId && editCurrentNumber > 0) {
+    symbolHint = (
+      <p className="text-xs text-muted-foreground">
+        Không thể đổi ký hiệu sau khi đã phát hành hóa đơn ({editCurrentNumber}{" "}
+        số đã dùng)
+      </p>
+    );
+  } else {
+    symbolHint = (
+      <p className="text-xs text-muted-foreground">
+        [C|K] + 2 số năm + [T|D|L|M] + 2 chữ hoa. VD: C26TAA, K26DAB
+      </p>
+    );
   }
 
   // ── UI ────────────────────────────────────────────────────────────────────
@@ -216,94 +321,7 @@ export default function InvoiceSettingsPage() {
                 <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    Đang tải...
-                  </TableCell>
-                </TableRow>
-              ) : settings.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    Chưa có dải hóa đơn nào. Nhấn "Thêm dải hóa đơn" để bắt đầu.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                settings.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.year}</TableCell>
-                    <TableCell>
-                      <span className="font-mono font-semibold">
-                        {s.symbol}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {s.templateCode === "1"
-                        ? "Hóa đơn GTGT"
-                        : `Mẫu ${s.templateCode}`}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {s.startNumber.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {s.currentNumber.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
-                      {s.currentNumber > 0
-                        ? String(s.currentNumber).padStart(7, "0")
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Switch
-                          checked={s.isActive}
-                          onCheckedChange={(v) =>
-                            toggleMutation.mutate({ id: s.id, isActive: v })
-                          }
-                        />
-                        {s.isActive ? (
-                          <Badge variant="default" className="text-xs">
-                            Đang dùng
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
-                            Không dùng
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(s)}
-                        >
-                          <Pencil size={14} />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(s)}
-                          disabled={s.currentNumber > 0}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
+            <TableBody>{settingsTableContent}</TableBody>
           </Table>
         </CardContent>
       </Card>
@@ -354,18 +372,7 @@ export default function InvoiceSettingsPage() {
                 disabled={!!editId && editCurrentNumber > 0}
                 className={symbolError ? "border-destructive" : ""}
               />
-              {symbolError ? (
-                <p className="text-xs text-destructive">{symbolError}</p>
-              ) : editId && editCurrentNumber > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Không thể đổi ký hiệu sau khi đã phát hành hóa đơn (
-                  {editCurrentNumber} số đã dùng)
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  [C|K] + 2 số năm + [T|D|L|M] + 2 chữ hoa. VD: C26TAA, K26DAB
-                </p>
-              )}
+              {symbolHint}
             </div>
 
             {/* Template code */}

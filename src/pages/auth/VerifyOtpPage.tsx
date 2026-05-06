@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Building2, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -63,11 +64,11 @@ export default function VerifyOtpPage() {
     <div className="min-h-screen flex">
       <div className="hidden lg:flex lg:w-1/2 sidebar-gradient items-center justify-center p-12">
         <div className="max-w-md text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-6">
-            <Building2 size={32} className="text-primary-foreground" />
+          <div className="mx-auto mb-6">
+            <img src={mwLogo} alt="MWConnect" className="h-16 w-auto mx-auto" />
           </div>
           <h1 className="text-3xl font-bold text-[hsl(0,0%,100%)] mb-3">
-            DebtFlow
+            MWConnect
           </h1>
           <p className="text-[hsl(220,15%,65%)] text-lg">
             Xác thực email của bạn để hoàn tất đăng ký

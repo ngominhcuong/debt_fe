@@ -63,9 +63,15 @@ function fmtDate(iso: string) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+function getInvoiceStatusText(status: InvoiceStatus): string {
+  if (status === "ISSUED") return "Đã phát hành";
+  if (status === "CANCELLED") return "Đã hủy";
+  return "Chưa phát hành";
+}
+
 // --- Status badges ---
 
-function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
+function VoucherStatusBadge({ isPosted }: Readonly<{ isPosted: boolean }>) {
   if (isPosted) {
     return (
       <Badge
@@ -86,7 +92,7 @@ function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
   );
 }
 
-function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+function InvoiceStatusBadge({ status }: Readonly<{ status: InvoiceStatus }>) {
   const map: Record<InvoiceStatus, { label: string; className: string }> = {
     DRAFT: {
       label: "Chưa phát hành",
@@ -112,7 +118,7 @@ function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
 
 // --- Detail panel – Hàng tiền tab ---
 
-function HangTienTab({ invoice }: { invoice: SalesInvoiceFull }) {
+function HangTienTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
   const totalQty = invoice.details.reduce(
     (s, d) => s + Number.parseFloat(d.qty),
     0,
@@ -244,63 +250,129 @@ function HangTienTab({ invoice }: { invoice: SalesInvoiceFull }) {
 
 // --- Detail panel – Thống kê tab ---
 
-function ThongKeTab({ invoice }: { invoice: SalesInvoiceFull }) {
-  const rows = [
+function ThongKeTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
+  const rows: Array<
+    | { type: "row"; id: string; label: string; value: string; bold?: boolean }
+    | { type: "sep"; id: string }
+  > = [
     {
+      type: "row",
+      id: "tong-tien-hang",
       label: "Tiền hàng (chưa VAT)",
       value: `${fmtVND(invoice.totalAmount)} VND`,
     },
-    { label: "Thuế GTGT", value: `${fmtVND(invoice.vatAmount)} VND` },
     {
+      type: "row",
+      id: "thue-vat",
+      label: "Thuế GTGT",
+      value: `${fmtVND(invoice.vatAmount)} VND`,
+    },
+    {
+      type: "row",
+      id: "tong-thanh-toan",
       label: "Tổng thanh toán",
       value: `${fmtVND(invoice.grandTotal)} VND`,
       bold: true,
     },
-    null,
+    { type: "sep", id: "sep-1" },
     {
+      type: "row",
+      id: "khach-hang",
       label: "Khách hàng",
       value: `${invoice.customer.code} — ${invoice.customer.name}`,
     },
-    { label: "Mã số thuế / CCCD", value: invoice.customer.taxCode ?? "—" },
-    { label: "Địa chỉ", value: invoice.customer.address ?? "—" },
-    { label: "Người liên hệ", value: invoice.contactPerson ?? "—" },
-    { label: "Nhân viên bán hàng", value: invoice.salesPersonName ?? "—" },
-    { label: "Tham chiếu", value: invoice.reference ?? "—" },
-    null,
-    { label: "Ngày hạch toán", value: fmtDate(invoice.accountingDate) },
-    { label: "Ngày chứng từ", value: fmtDate(invoice.voucherDate) },
     {
-      label: "Số ngày được nợ",
-      value:
-        invoice.paymentTermDays != null
-          ? `${invoice.paymentTermDays} ngày`
-          : "—",
+      type: "row",
+      id: "mst",
+      label: "Mã số thuế / CCCD",
+      value: invoice.customer.taxCode ?? "—",
     },
     {
+      type: "row",
+      id: "dia-chi",
+      label: "Địa chỉ",
+      value: invoice.customer.address ?? "—",
+    },
+    {
+      type: "row",
+      id: "nguoi-lien-he",
+      label: "Người liên hệ",
+      value: invoice.contactPerson ?? "—",
+    },
+    {
+      type: "row",
+      id: "nv-ban-hang",
+      label: "Nhân viên bán hàng",
+      value: invoice.salesPersonName ?? "—",
+    },
+    {
+      type: "row",
+      id: "tham-chieu",
+      label: "Tham chiếu",
+      value: invoice.reference ?? "—",
+    },
+    { type: "sep", id: "sep-2" },
+    {
+      type: "row",
+      id: "ngay-hach-toan",
+      label: "Ngày hạch toán",
+      value: fmtDate(invoice.accountingDate),
+    },
+    {
+      type: "row",
+      id: "ngay-chung-tu",
+      label: "Ngày chứng từ",
+      value: fmtDate(invoice.voucherDate),
+    },
+    {
+      type: "row",
+      id: "so-ngay-no",
+      label: "Số ngày được nợ",
+      value:
+        invoice.paymentTermDays == null
+          ? "—"
+          : `${invoice.paymentTermDays} ngày`,
+    },
+    {
+      type: "row",
+      id: "han-thanh-toan",
       label: "Hạn thanh toán",
       value: invoice.dueDate ? fmtDate(invoice.dueDate) : "—",
     },
-    null,
-    { label: "Ký hiệu HĐ", value: invoice.invoiceSeries ?? "—" },
-    { label: "Số hóa đơn", value: invoice.invoiceNumber ?? "Chưa có" },
+    { type: "sep", id: "sep-3" },
     {
-      label: "Trạng thái HĐ",
-      value:
-        invoice.invoiceStatus === "ISSUED"
-          ? "Đã phát hành"
-          : invoice.invoiceStatus === "CANCELLED"
-            ? "Đã hủy"
-            : "Chưa phát hành",
+      type: "row",
+      id: "ky-hieu-hoa-don",
+      label: "Ký hiệu HĐ",
+      value: invoice.invoiceSeries ?? "—",
     },
     {
+      type: "row",
+      id: "so-hoa-don",
+      label: "Số hóa đơn",
+      value: invoice.invoiceNumber ?? "Chưa có",
+    },
+    {
+      type: "row",
+      id: "trang-thai-hoa-don",
+      label: "Trạng thái HĐ",
+      value: getInvoiceStatusText(invoice.invoiceStatus),
+    },
+    {
+      type: "row",
+      id: "trang-thai-ghi-so",
       label: "Trạng thái ghi sổ",
       value: invoice.isPosted ? "Đã ghi sổ" : "Nháp",
     },
     {
+      type: "row",
+      id: "kiem-phieu-xuat",
       label: "Kiêm phiếu xuất kho",
       value: invoice.isDelivered ? "Có" : "Không",
     },
     {
+      type: "row",
+      id: "nguoi-ghi-so",
       label: "Người ghi sổ",
       value: invoice.postedBy?.fullName ?? invoice.postedBy?.email ?? "—",
     },
@@ -309,10 +381,10 @@ function ThongKeTab({ invoice }: { invoice: SalesInvoiceFull }) {
   return (
     <div className="p-4 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-        {rows.map((item, i) =>
-          item === null ? (
+        {rows.map((item) =>
+          item.type === "sep" ? (
             <div
-              key={`sep-${i}`}
+              key={item.id}
               className="col-span-full border-t border-border/40"
             />
           ) : (
@@ -366,11 +438,11 @@ function SortIcon({
   field,
   sortBy,
   sortDir,
-}: {
+}: Readonly<{
   field: string;
   sortBy: string;
   sortDir: "asc" | "desc";
-}) {
+}>) {
   if (sortBy !== field)
     return <ArrowUpDown size={12} className="ml-1 opacity-40" />;
   return sortDir === "asc" ? (
@@ -399,13 +471,7 @@ function exportToCsv(rows: SalesInvoiceListItem[]) {
     r.grandTotal,
     r.invoiceNumber ?? "",
     r.isPosted ? "Đã ghi sổ" : "Nháp",
-    r.isInvoiced
-      ? r.invoiceStatus === "ISSUED"
-        ? "Đã phát hành"
-        : r.invoiceStatus === "CANCELLED"
-          ? "Đã hủy"
-          : "Chưa phát hành"
-      : "—",
+    r.isInvoiced ? getInvoiceStatusText(r.invoiceStatus) : "—",
     r.postedBy?.fullName ?? r.postedBy?.email ?? "—",
   ]);
   const content = [headers, ...csvRows]
@@ -425,6 +491,7 @@ function exportToCsv(rows: SalesInvoiceListItem[]) {
 
 // --- Main page ---
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export default function SalesInvoicesPage() {
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -539,8 +606,12 @@ export default function SalesInvoicesPage() {
 
   const { data: detailData, isLoading: detailLoading } = useQuery({
     queryKey: ["sales-invoice", selectedId, token],
-    queryFn: () =>
-      api.salesInvoice.getById(selectedId!, token).then((r) => r.data),
+    queryFn: async () => {
+      if (!selectedId) {
+        throw new Error("Missing invoice id");
+      }
+      return api.salesInvoice.getById(selectedId, token).then((r) => r.data);
+    },
     enabled: !!token && !!selectedId,
     staleTime: 60_000,
   });
@@ -659,7 +730,7 @@ export default function SalesInvoicesPage() {
 
   async function handleDeleteInvoice(id: string, voucherNumber: string) {
     if (
-      !window.confirm(
+      !globalThis.confirm(
         `Xóa chứng từ ${voucherNumber}? Thao tác này không thể hoàn tác.`,
       )
     )
@@ -690,6 +761,281 @@ export default function SalesInvoicesPage() {
     appliedIsDelivered !== undefined,
     appliedDateFrom !== undefined,
   ].filter(Boolean).length;
+
+  let listContent: React.ReactNode;
+  if (listLoading) {
+    listContent = (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  } else if (listError) {
+    listContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
+        <AlertCircle size={24} />
+        <p className="text-sm">Không thể tải danh sách. Vui lòng thử lại.</p>
+        <Button size="sm" variant="outline" onClick={() => refetch()}>
+          Thử lại
+        </Button>
+      </div>
+    );
+  } else {
+    listContent = (
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+            <tr className="border-b border-border">
+              <th className="w-10 px-3 py-2 text-left">
+                <Checkbox
+                  checked={someChecked ? "indeterminate" : allChecked}
+                  onCheckedChange={(c) => toggleAll(!!c)}
+                  aria-label="Chọn tất cả"
+                />
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-36">
+                Số chứng từ
+              </th>
+              <th
+                className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28 cursor-pointer hover:text-foreground select-none"
+                onClick={() => toggleSort("accountingDate")}
+              >
+                <span className="inline-flex items-center">
+                  Ngày HT
+                  <SortIcon
+                    field="accountingDate"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
+                Khách hàng
+              </th>
+              <th
+                className="px-3 py-2 text-right font-medium text-muted-foreground text-xs whitespace-nowrap w-36 cursor-pointer hover:text-foreground select-none"
+                onClick={() => toggleSort("grandTotal")}
+              >
+                <span className="inline-flex items-center justify-end w-full">
+                  Tổng TT (VND)
+                  <SortIcon
+                    field="grandTotal"
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                Số HĐ
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                Trạng thái
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                HĐ GTGT
+              </th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-32">
+                Người ghi sổ
+              </th>
+              <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
+                Chức năng
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={10}
+                  className="px-3 py-12 text-center text-muted-foreground text-sm"
+                >
+                  Không có dữ liệu.{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline hover:no-underline"
+                    onClick={() => navigate("/sales/invoices/new")}
+                  >
+                    Thêm mới
+                  </button>{" "}
+                  để tạo chứng từ bán hàng đầu tiên.
+                </td>
+              </tr>
+            ) : (
+              filteredRows.map((inv) => (
+                <tr
+                  key={inv.id}
+                  onClick={() => setSelectedId(inv.id)}
+                  className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-muted/40 ${selectedId === inv.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
+                >
+                  <td
+                    className="px-3 py-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selectedIds.has(inv.id)}
+                      onCheckedChange={(c) => toggleRow(inv.id, !!c)}
+                      aria-label={`Chọn ${inv.voucherNumber}`}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="text-primary font-medium text-xs hover:underline cursor-pointer">
+                      {inv.voucherNumber}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {fmtDate(inv.accountingDate)}
+                  </td>
+                  <td className="px-3 py-2 text-xs">{inv.customer.name}</td>
+                  <td className="px-3 py-2 text-right text-xs font-mono font-medium">
+                    {fmtVND(inv.grandTotal)}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {inv.invoiceNumber ?? "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <VoucherStatusBadge isPosted={inv.isPosted} />
+                  </td>
+                  <td className="px-3 py-2">
+                    {inv.isInvoiced ? (
+                      <InvoiceStatusBadge status={inv.invoiceStatus} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {inv.postedBy?.fullName ?? inv.postedBy?.email ?? "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-primary hover:text-primary"
+                        >
+                          Chức năng <ChevronDown size={12} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="gap-2"
+                          disabled={
+                            inv.invoiceStatus === "ISSUED" ||
+                            issuingId === inv.id
+                          }
+                          onClick={() => handleIssueInvoice(inv.id)}
+                        >
+                          {issuingId === inv.id ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              Đang phát hành…
+                            </>
+                          ) : (
+                            <>
+                              <SendHorizontal size={13} />
+                              Phát hành hóa đơn
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/sales/invoices/${inv.id}`)}
+                        >
+                          Xem
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate(`/sales/invoices/${inv.id}/edit`)
+                          }
+                        >
+                          Sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          disabled={
+                            inv.isPosted || inv.invoiceStatus !== "DRAFT"
+                          }
+                          onClick={() =>
+                            handleDeleteInvoice(inv.id, inv.voucherNumber)
+                          }
+                        >
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {filteredRows.length > 0 && (
+            <tfoot className="sticky bottom-0 bg-muted/90 backdrop-blur-sm">
+              <tr className="border-t-2 border-border font-semibold text-xs">
+                <td className="px-3 py-2" colSpan={2}>
+                  Tổng: {filteredRows.length} chứng từ
+                </td>
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2 text-right font-mono">
+                  {fmtVND(grandTotalSum)}
+                </td>
+                <td className="px-3 py-2" colSpan={5} />
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    );
+  }
+
+  const totalRecords = search.trim()
+    ? filteredRows.length
+    : (listData?.total ?? 0);
+  const recordCountText =
+    selectedIds.size > 0
+      ? `Đã chọn ${selectedIds.size} / ${filteredRows.length}`
+      : `${totalRecords} bản ghi`;
+
+  let thueContent: React.ReactNode = <DetailSkeleton />;
+  if (!detailLoading && detailData) {
+    if (detailData.isInvoiced) {
+      thueContent = (
+        <div className="p-4 grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Ký hiệu HĐ</span>
+            <span className="text-sm">{detailData.invoiceSeries ?? "—"}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Số HĐ</span>
+            <span className="text-sm">{detailData.invoiceNumber ?? "—"}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Ngày HĐ</span>
+            <span className="text-sm">
+              {detailData.invoiceDate ? fmtDate(detailData.invoiceDate) : "—"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Trạng thái HĐ</span>
+            <InvoiceStatusBadge status={detailData.invoiceStatus} />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Thuế GTGT</span>
+            <span className="text-sm font-semibold">
+              {fmtVND(detailData.vatAmount)} VND
+            </span>
+          </div>
+        </div>
+      );
+    } else {
+      thueContent = (
+        <p className="text-sm text-muted-foreground text-center mt-8 p-4">
+          Chứng từ này không lập kèm hóa đơn GTGT
+        </p>
+      );
+    }
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
@@ -944,243 +1290,12 @@ export default function SalesInvoicesPage() {
           )}
 
           {/* Content */}
-          {listLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : listError ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
-              <AlertCircle size={24} />
-              <p className="text-sm">
-                Không thể tải danh sách. Vui lòng thử lại.
-              </p>
-              <Button size="sm" variant="outline" onClick={() => refetch()}>
-                Thử lại
-              </Button>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-                  <tr className="border-b border-border">
-                    <th className="w-10 px-3 py-2 text-left">
-                      <Checkbox
-                        checked={someChecked ? "indeterminate" : allChecked}
-                        onCheckedChange={(c) => toggleAll(!!c)}
-                        aria-label="Chọn tất cả"
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-36">
-                      Số chứng từ
-                    </th>
-                    <th
-                      className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28 cursor-pointer hover:text-foreground select-none"
-                      onClick={() => toggleSort("accountingDate")}
-                    >
-                      <span className="inline-flex items-center">
-                        Ngày HT
-                        <SortIcon
-                          field="accountingDate"
-                          sortBy={sortBy}
-                          sortDir={sortDir}
-                        />
-                      </span>
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">
-                      Khách hàng
-                    </th>
-                    <th
-                      className="px-3 py-2 text-right font-medium text-muted-foreground text-xs whitespace-nowrap w-36 cursor-pointer hover:text-foreground select-none"
-                      onClick={() => toggleSort("grandTotal")}
-                    >
-                      <span className="inline-flex items-center justify-end w-full">
-                        Tổng TT (VND)
-                        <SortIcon
-                          field="grandTotal"
-                          sortBy={sortBy}
-                          sortDir={sortDir}
-                        />
-                      </span>
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Số HĐ
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Trạng thái
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      HĐ GTGT
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs whitespace-nowrap w-32">
-                      Người ghi sổ
-                    </th>
-                    <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs whitespace-nowrap w-28">
-                      Chức năng
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={10}
-                        className="px-3 py-12 text-center text-muted-foreground text-sm"
-                      >
-                        Không có dữ liệu.{" "}
-                        <button
-                          type="button"
-                          className="text-primary underline hover:no-underline"
-                          onClick={() => navigate("/sales/invoices/new")}
-                        >
-                          Thêm mới
-                        </button>{" "}
-                        để tạo chứng từ bán hàng đầu tiên.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRows.map((inv) => (
-                      <tr
-                        key={inv.id}
-                        onClick={() => setSelectedId(inv.id)}
-                        className={`border-b border-border/50 cursor-pointer transition-colors hover:bg-muted/40 ${selectedId === inv.id ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
-                      >
-                        <td
-                          className="px-3 py-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={selectedIds.has(inv.id)}
-                            onCheckedChange={(c) => toggleRow(inv.id, !!c)}
-                            aria-label={`Chọn ${inv.voucherNumber}`}
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="text-primary font-medium text-xs hover:underline cursor-pointer">
-                            {inv.voucherNumber}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {fmtDate(inv.accountingDate)}
-                        </td>
-                        <td className="px-3 py-2 text-xs">
-                          {inv.customer.name}
-                        </td>
-                        <td className="px-3 py-2 text-right text-xs font-mono font-medium">
-                          {fmtVND(inv.grandTotal)}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {inv.invoiceNumber ?? "—"}
-                        </td>
-                        <td className="px-3 py-2">
-                          <VoucherStatusBadge isPosted={inv.isPosted} />
-                        </td>
-                        <td className="px-3 py-2">
-                          {inv.isInvoiced ? (
-                            <InvoiceStatusBadge status={inv.invoiceStatus} />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              —
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {inv.postedBy?.fullName ?? inv.postedBy?.email ?? "—"}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs gap-1 text-primary hover:text-primary"
-                              >
-                                Chức năng <ChevronDown size={12} />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="gap-2"
-                                disabled={
-                                  inv.invoiceStatus === "ISSUED" ||
-                                  issuingId === inv.id
-                                }
-                                onClick={() => handleIssueInvoice(inv.id)}
-                              >
-                                {issuingId === inv.id ? (
-                                  <>
-                                    <Loader2
-                                      size={13}
-                                      className="animate-spin"
-                                    />
-                                    Đang phát hành…
-                                  </>
-                                ) : (
-                                  <>
-                                    <SendHorizontal size={13} />
-                                    Phát hành hóa đơn
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  navigate(`/sales/invoices/${inv.id}`)
-                                }
-                              >
-                                Xem
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  navigate(`/sales/invoices/${inv.id}/edit`)
-                                }
-                              >
-                                Sửa
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                disabled={
-                                  inv.isPosted || inv.invoiceStatus !== "DRAFT"
-                                }
-                                onClick={() =>
-                                  handleDeleteInvoice(inv.id, inv.voucherNumber)
-                                }
-                              >
-                                Xóa
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                {filteredRows.length > 0 && (
-                  <tfoot className="sticky bottom-0 bg-muted/90 backdrop-blur-sm">
-                    <tr className="border-t-2 border-border font-semibold text-xs">
-                      <td className="px-3 py-2" colSpan={2}>
-                        Tổng: {filteredRows.length} chứng từ
-                      </td>
-                      <td className="px-3 py-2" />
-                      <td className="px-3 py-2" />
-                      <td className="px-3 py-2 text-right font-mono">
-                        {fmtVND(grandTotalSum)}
-                      </td>
-                      <td className="px-3 py-2" colSpan={5} />
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          )}
+          {listContent}
 
           {/* Pagination bar */}
           <div className="px-4 py-1.5 border-t border-border bg-card flex items-center justify-between shrink-0">
             <span className="text-xs text-muted-foreground">
-              {selectedIds.size > 0
-                ? `Đã chọn ${selectedIds.size} / ${filteredRows.length}`
-                : `${search.trim() ? filteredRows.length : (listData?.total ?? 0)} bản ghi`}
+              {recordCountText}
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
@@ -1220,11 +1335,7 @@ export default function SalesInvoicesPage() {
           minSize={20}
           className="flex flex-col overflow-hidden bg-card"
         >
-          {!selectedId ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              Chọn một chứng từ để xem chi tiết
-            </div>
-          ) : (
+          {selectedId ? (
             <>
               <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
                 <span className="text-sm font-semibold text-primary">
@@ -1304,56 +1415,7 @@ export default function SalesInvoicesPage() {
                 </TabsContent>
 
                 <TabsContent value="thue" className="flex-1 m-0 overflow-auto">
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : detailData.isInvoiced ? (
-                    <div className="p-4 grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          Ký hiệu HĐ
-                        </span>
-                        <span className="text-sm">
-                          {detailData.invoiceSeries ?? "—"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          Số HĐ
-                        </span>
-                        <span className="text-sm">
-                          {detailData.invoiceNumber ?? "—"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          Ngày HĐ
-                        </span>
-                        <span className="text-sm">
-                          {detailData.invoiceDate
-                            ? fmtDate(detailData.invoiceDate)
-                            : "—"}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          Trạng thái HĐ
-                        </span>
-                        <InvoiceStatusBadge status={detailData.invoiceStatus} />
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          Thuế GTGT
-                        </span>
-                        <span className="text-sm font-semibold">
-                          {fmtVND(detailData.vatAmount)} VND
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center mt-8 p-4">
-                      Chứng từ này không lập kèm hóa đơn GTGT
-                    </p>
-                  )}
+                  {thueContent}
                 </TabsContent>
 
                 <TabsContent
@@ -1387,7 +1449,6 @@ export default function SalesInvoicesPage() {
                       <tbody>
                         {detailData.details.map((d, i) => {
                           const qty = Number.parseFloat(d.qty);
-                          const unitPrice = Number.parseFloat(d.unitPrice);
                           // giá vốn chưa có trong detail — hiển thị placeholder
                           return (
                             <tr
@@ -1431,6 +1492,10 @@ export default function SalesInvoicesPage() {
                 </TabsContent>
               </Tabs>
             </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              Chọn một chứng từ để xem chi tiết
+            </div>
           )}
         </ResizablePanel>
       </ResizablePanelGroup>

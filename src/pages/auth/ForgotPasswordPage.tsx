@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2 } from "lucide-react";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,10 @@ export default function ForgotPasswordPage() {
       {/* Top-left logo */}
       <Link
         to="/"
-        className="absolute top-5 left-5 w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md hover:opacity-90 transition-opacity"
+        className="absolute top-5 left-5 hover:opacity-90 transition-opacity"
         aria-label="Trang chủ"
       >
-        <Building2 size={20} className="text-primary-foreground" />
+        <img src={mwLogo} alt="MWConnect" className="h-10 w-auto" />
       </Link>
 
       <div className="relative w-full max-w-sm">

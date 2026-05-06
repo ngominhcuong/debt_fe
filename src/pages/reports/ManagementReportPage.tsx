@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Printer,
+  Download,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { api } from "@/lib/api";
+import { api, type ManagementReportResult } from "@/lib/api";
+import { openPrintPreviewWindow } from "@/lib/print-preview";
 import { useAuth } from "@/contexts/AuthContext";
-import PageToolbar from "@/components/shared/PageToolbar";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +33,213 @@ function fmtBalance(val: number) {
   if (val < 0)
     return <span className="text-destructive">({fmtVND(Math.abs(val))})</span>;
   return <>{fmtVND(val)}</>;
+}
+
+const COMPANY = {
+  name: "CÔNG TY TNHH MWCONNECT VIỆT NAM",
+  address: "Xưởng A1, Lô CN17A-3, Khu công nghiệp Quế Võ III, Bắc Ninh",
+};
+
+const ACCOUNT_LABELS: Record<string, string> = {
+  "131": "Tài khoản 131 — Phải thu khách hàng",
+  "331": "Tài khoản 331 — Phải trả nhà cung cấp",
+};
+
+function escapeHtml(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function fmtAmt(val: number): string {
+  if (val === 0) return "—";
+  return new Intl.NumberFormat("vi-VN").format(Math.round(Math.abs(val)));
+}
+
+function fmtBalAmt(val: number): string {
+  if (val === 0) return "0";
+  const s = new Intl.NumberFormat("vi-VN").format(Math.round(Math.abs(val)));
+  return val < 0 ? `(${s})` : s;
+}
+
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function buildManagementHtml(
+  result: ManagementReportResult,
+  accountCode: string,
+  dateFrom?: string,
+  dateTo?: string,
+): string {
+  const periodLabel = `Từ ngày ${dateFrom ? fmtDate(dateFrom) : "đầu kỳ"} đến ngày ${dateTo ? fmtDate(dateTo) : "hiện tại"}`;
+  const accountLabel = ACCOUNT_LABELS[accountCode] ?? `TK ${accountCode}`;
+  const today = fmtDate(new Date().toISOString());
+
+  const rows = result.rows
+    .map(
+      (row, i) => `
+    <tr class="${i % 2 === 1 ? "even" : ""}">
+      <td class="center">${i + 1}</td>
+      <td class="mono">${escapeHtml(row.partnerCode)}</td>
+      <td>${escapeHtml(row.partnerName)}</td>
+      <td class="center">${escapeHtml(row.taxCode ?? "—")}</td>
+      <td class="right">${escapeHtml(fmtBalAmt(row.openingBalance))}</td>
+      <td class="right">${escapeHtml(fmtAmt(row.periodDebit))}</td>
+      <td class="right">${escapeHtml(fmtAmt(row.periodCredit))}</td>
+      <td class="right bold">${escapeHtml(fmtBalAmt(row.closingBalance))}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const t = result.totals;
+  return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Bảng tổng hợp công nợ — ${escapeHtml(accountLabel)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 18mm 20mm 16mm 20mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Times New Roman", serif; font-size: 13px; color: #111; margin: 0; padding: 0; }
+    @media screen {
+      body { background: #e8e8e8; }
+      .page-wrap { background: #fff; max-width: 297mm; margin: 20px auto; padding: 18mm 20mm 16mm 20mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+    }
+    @media print {
+      body { background: none; }
+      .page-wrap { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+    }
+
+    .topbar { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    .topbar td { vertical-align: top; padding: 0; }
+    .topbar td:first-child { width: 55%; }
+    .topbar td:last-child  { width: 45%; text-align: right; }
+    .company-name { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+    .company-sub  { font-size: 12px; margin-bottom: 2px; }
+    .date-note    { font-size: 12px; }
+
+    .title { text-align: center; margin: 4px 0 14px; }
+    .title h1   { margin: 0 0 4px; font-size: 20px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .title .sub    { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .title .period { font-size: 12px; font-style: italic; }
+
+    table.rpt { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 14px; }
+    table.rpt th, table.rpt td { border: 1px solid #555; padding: 5px 7px; font-size: 12px; vertical-align: middle; }
+    table.rpt thead th { background: #dce8f6; text-align: center; font-weight: 700; }
+    table.rpt tbody tr.even { background: #f7fafd; }
+    table.rpt .sum-row td { font-weight: 700; background: #eef4fb; border-top: 2px solid #555; }
+    table.rpt .center { text-align: center; }
+    table.rpt .right  { text-align: right; white-space: nowrap; }
+    table.rpt .mono   { font-family: monospace; }
+    table.rpt .bold   { font-weight: 700; }
+
+    .signatures { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    .signatures td { width: 33.33%; text-align: center; vertical-align: top;
+                     font-size: 13px; font-weight: 700; padding: 0 8px; }
+    .signatures .hint  { display: block; font-style: italic; font-weight: 400; font-size: 12px; margin-top: 2px; }
+    .signatures .space { display: block; height: 60px; }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+  <table class="topbar">
+    <tr>
+      <td>
+        <div class="company-name">${escapeHtml(COMPANY.name)}</div>
+        <div class="company-sub">${escapeHtml(COMPANY.address)}</div>
+      </td>
+      <td>
+        <div class="date-note">
+          <b>Bảng tổng hợp công nợ</b><br />
+          <em style="font-weight:400">Ngày in: ${escapeHtml(today)}</em>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="title">
+    <h1>Bảng Tổng Hợp Công Nợ</h1>
+    <div class="sub">${escapeHtml(accountLabel)}</div>
+    <div class="period">${escapeHtml(periodLabel)}</div>
+  </div>
+
+  <table class="rpt">
+    <colgroup>
+      <col style="width:4%" />
+      <col style="width:10%" />
+      <col style="width:30%" />
+      <col style="width:14%" />
+      <col style="width:11%" />
+      <col style="width:10%" />
+      <col style="width:10%" />
+      <col style="width:11%" />
+    </colgroup>
+    <thead><tr>
+      <th>STT</th>
+      <th>Mã ĐT</th>
+      <th>Tên đối tác</th>
+      <th>Mã số thuế</th>
+      <th>Dư đầu kỳ</th>
+      <th>PS Nợ</th>
+      <th>PS Có</th>
+      <th>Dư cuối kỳ</th>
+    </tr></thead>
+    <tbody>
+      ${rows || '<tr><td colspan="8" class="center" style="padding:10px">Không có dữ liệu</td></tr>'}
+      ${
+        result.rows.length > 0
+          ? `
+      <tr class="sum-row">
+        <td colspan="4" class="right">Tổng cộng</td>
+        <td class="right">${escapeHtml(fmtBalAmt(t.openingBalance))}</td>
+        <td class="right">${escapeHtml(fmtAmt(t.periodDebit))}</td>
+        <td class="right">${escapeHtml(fmtAmt(t.periodCredit))}</td>
+        <td class="right">${escapeHtml(fmtBalAmt(t.closingBalance))}</td>
+      </tr>`
+          : ""
+      }
+    </tbody>
+  </table>
+  ${result.total > result.rows.length ? `<p style="font-size:12px;font-style:italic">* Hiển thị ${result.rows.length} / ${result.total} đối tác (trang ${result.page})</p>` : ""}
+
+  <table class="signatures">
+    <tr>
+      <td>NGƯỜI LẬP BẢNG<span class="hint">(Ký, họ tên)</span></td>
+      <td>KẾ TOÁN TRƯỞNG<span class="hint">(Ký, họ tên)</span></td>
+      <td>NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT<span class="hint">(Ký, họ tên, đóng dấu)</span></td>
+    </tr>
+    <tr>
+      <td><span class="space"></span></td>
+      <td><span class="space"></span></td>
+      <td><span class="space"></span></td>
+    </tr>
+  </table>
+  </div>
+</body>
+</html>`;
+}
+
+function openManagementPrint(
+  result: ManagementReportResult,
+  accountCode: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const html = buildManagementHtml(result, accountCode, dateFrom, dateTo);
+  openPrintPreviewWindow(html, `Bao cao cong no ${accountCode}`);
+}
+
+function downloadManagementReport(
+  result: ManagementReportResult,
+  accountCode: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  openManagementPrint(result, accountCode, dateFrom, dateTo);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -82,8 +296,6 @@ export default function ManagementReportPage() {
 
   return (
     <>
-      <PageToolbar onExport={() => window.print()} />
-
       {/* ── Filters ── */}
       <div className="flex flex-wrap gap-3 items-end mb-4">
         <div>
@@ -141,6 +353,41 @@ export default function ManagementReportPage() {
           )}
           Tra cứu
         </Button>
+
+        {result && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() =>
+                openManagementPrint(
+                  result,
+                  accountCode,
+                  dateFrom || undefined,
+                  dateTo || undefined,
+                )
+              }
+            >
+              <Printer size={13} /> In báo cáo
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() =>
+                downloadManagementReport(
+                  result,
+                  accountCode,
+                  dateFrom || undefined,
+                  dateTo || undefined,
+                )
+              }
+            >
+              <Download size={13} /> Tải về
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Empty state ── */}

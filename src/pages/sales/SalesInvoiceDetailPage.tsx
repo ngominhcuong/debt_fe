@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Pencil,
   ArrowLeft,
@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQueryClient } from "@tanstack/react-query";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,11 +34,11 @@ function InfoRow({
   label,
   value,
   bold,
-}: {
+}: Readonly<{
   label: string;
   value: string | React.ReactNode;
   bold?: boolean;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -50,7 +49,7 @@ function InfoRow({
   );
 }
 
-function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
+function VoucherStatusBadge({ isPosted }: Readonly<{ isPosted: boolean }>) {
   if (isPosted) {
     return (
       <Badge
@@ -68,7 +67,7 @@ function VoucherStatusBadge({ isPosted }: { isPosted: boolean }) {
   );
 }
 
-function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+function InvoiceStatusBadge({ status }: Readonly<{ status: InvoiceStatus }>) {
   const cfg: Record<InvoiceStatus, { label: string; className: string }> = {
     DRAFT: {
       label: "Chưa phát hành",
@@ -107,7 +106,12 @@ export default function SalesInvoiceDetailPage() {
     isError,
   } = useQuery({
     queryKey: ["sales-invoice", id, token],
-    queryFn: () => api.salesInvoice.getById(id!, token),
+    queryFn: async () => {
+      if (!id) {
+        throw new Error("Missing invoice id");
+      }
+      return api.salesInvoice.getById(id, token);
+    },
     enabled: !!token && !!id,
     staleTime: 60_000,
   });
@@ -256,9 +260,9 @@ export default function SalesInvoiceDetailPage() {
               <InfoRow
                 label="Số ngày được nợ"
                 value={
-                  inv.paymentTermDays != null
-                    ? `${inv.paymentTermDays} ngày`
-                    : "—"
+                  inv.paymentTermDays == null
+                    ? "—"
+                    : `${inv.paymentTermDays} ngày`
                 }
               />
               <InfoRow label="Hạn thanh toán" value={fmtDate(inv.dueDate)} />

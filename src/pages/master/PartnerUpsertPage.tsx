@@ -204,10 +204,10 @@ export default function PartnerUpsertPage() {
           scope: reminderConfig.scope,
           enabled: reminderConfig.enabled,
           daysBeforeDue: reminderConfig.daysBeforeDue
-            ? parseInt(reminderConfig.daysBeforeDue, 10)
+            ? Number.parseInt(reminderConfig.daysBeforeDue, 10)
             : 3,
           daysAfterDue: reminderConfig.daysAfterDue
-            ? parseInt(reminderConfig.daysAfterDue, 10)
+            ? Number.parseInt(reminderConfig.daysAfterDue, 10)
             : 1,
           recipientEmail: reminderConfig.recipientEmail.trim() || null,
           ccEmails: reminderConfig.ccEmails

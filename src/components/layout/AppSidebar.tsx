@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   ClipboardList,
   BookOpen,
-  TrendingUp,
   Building2,
   ShoppingCart,
   Settings,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import mwLogo from "@/assets/MWConnect_Logo_1.png";
 
 interface MenuItem {
   label: string;
@@ -184,13 +184,11 @@ export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
           collapsed ? "px-0 justify-center" : "px-5 gap-3"
         }`}
       >
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-          <Building2 size={18} className="text-primary-foreground" />
-        </div>
+        <img src={mwLogo} alt="MWConnect" className="h-8 w-auto" />
         {!collapsed && (
           <div className="overflow-hidden transition-all duration-300 w-28 opacity-100">
             <h1 className="font-bold text-[hsl(var(--sidebar-active-fg))] text-base tracking-tight">
-              DebtFlow
+              MWConnect
             </h1>
             <p className="text-[10px] text-[hsl(var(--sidebar-fg))]">
               Quản lý Công nợ
