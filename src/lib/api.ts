@@ -1,8 +1,22 @@
 import { supabase } from "@/lib/supabase";
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://localhost:4000";
+function resolveApiBase(): string {
+  const configured = (import.meta.env.VITE_API_URL as string | undefined)
+    ?.trim()
+    .replaceAll(/\/+$/g, "");
+
+  // `auto` (or empty) means: use the same hostname as current frontend origin.
+  if (!configured || configured.toLowerCase() === "auto") {
+    if (globalThis.window === undefined) {
+      return "http://localhost:4000";
+    }
+    return `${globalThis.window.location.protocol}//${globalThis.window.location.hostname}:4000`;
+  }
+
+  return configured;
+}
+
+const API_BASE = resolveApiBase();
 
 export interface UserProfile {
   id: string;
@@ -228,7 +242,8 @@ export interface SalesInvoiceListItem {
   paymentTermDays: number | null;
   dueDate: string | null;
   createdAt: string;
-  customer: SalesInvoiceCustomer;
+  retailCustomerName: string | null;
+  customer: SalesInvoiceCustomer | null;
   postedBy: SalesInvoicePostedBy | null;
 }
 
@@ -279,7 +294,8 @@ export interface SalesInvoiceDetailPayload {
 export interface SalesInvoicePayload {
   voucherDate: string;
   accountingDate: string;
-  customerId: string;
+  customerId?: string;
+  retailCustomerName?: string;
   description?: string;
   isPosted: boolean;
   isDelivered: boolean;
@@ -367,6 +383,8 @@ export interface DebtInvoiceRow {
   voucherDate: string;
   dueDate: string | null;
   grandTotal: string;
+  paidAmount: string;
+  remaining: string;
   overdueDays: number;
 }
 
@@ -439,6 +457,7 @@ export interface PurchaseInvoiceListItem {
   paymentTermDays: number | null;
   dueDate: string | null;
   createdAt: string;
+  retailCustomerName: string | null;
   supplier: PurchaseInvoiceSupplier;
   postedBy: { id: string; fullName: string | null; email: string } | null;
 }
@@ -491,6 +510,7 @@ export interface PurchaseInvoicePayload {
   voucherDate: string;
   accountingDate: string;
   supplierId: string;
+  retailCustomerName?: string;
   description?: string;
   isPosted?: boolean;
   invoiceNumber?: string;
@@ -535,6 +555,8 @@ export interface ApDebtInvoiceRow {
   voucherDate: string;
   dueDate: string | null;
   grandTotal: string;
+  paidAmount: string;
+  remaining: string;
   overdueDays: number;
 }
 
@@ -590,6 +612,50 @@ export interface CreateReceiptPayload {
   lines: CreateReceiptLinePayload[];
 }
 
+export interface ReceiptListRow {
+  id: string;
+  receiptNumber: string;
+  receiptDate: string;
+  accountingDate: string;
+  totalAmount: string;
+  submitter: string | null;
+  reason: string | null;
+  isPosted: boolean;
+  customer: { id: string; code: string; name: string };
+}
+
+export interface ReceiptListResult {
+  total: number;
+  page: number;
+  limit: number;
+  rows: ReceiptListRow[];
+}
+
+export interface ReceiptFull {
+  id: string;
+  receiptNumber: string;
+  receiptDate: string;
+  accountingDate: string;
+  totalAmount: string;
+  submitter: string | null;
+  reason: string | null;
+  notes: string | null;
+  customer: {
+    id: string;
+    code: string;
+    name: string;
+    taxCode: string | null;
+    address: string | null;
+  };
+  lines: {
+    id: string;
+    debitAccount: { id: string; code: string; name: string };
+    creditAccount: { id: string; code: string; name: string };
+    amount: string;
+    description: string;
+  }[];
+}
+
 export interface PaymentDefaultsResult {
   cashAccounts: { id: string; code: string; name: string }[];
   allAccounts: { id: string; code: string; name: string }[];
@@ -611,6 +677,50 @@ export interface CreatePaymentPayload {
   reason?: string;
   notes?: string;
   lines: CreatePaymentLinePayload[];
+}
+
+export interface PaymentListRow {
+  id: string;
+  paymentNumber: string;
+  paymentDate: string;
+  accountingDate: string;
+  totalAmount: string;
+  recipient: string | null;
+  reason: string | null;
+  isPosted: boolean;
+  supplier: { id: string; code: string; name: string };
+}
+
+export interface PaymentListResult {
+  total: number;
+  page: number;
+  limit: number;
+  rows: PaymentListRow[];
+}
+
+export interface PaymentFull {
+  id: string;
+  paymentNumber: string;
+  paymentDate: string;
+  accountingDate: string;
+  totalAmount: string;
+  recipient: string | null;
+  reason: string | null;
+  notes: string | null;
+  supplier: {
+    id: string;
+    code: string;
+    name: string;
+    taxCode: string | null;
+    address: string | null;
+  };
+  lines: {
+    id: string;
+    debitAccount: { id: string; code: string; name: string };
+    creditAccount: { id: string; code: string; name: string };
+    amount: string;
+    description: string;
+  }[];
 }
 
 // ── Report interfaces ─────────────────────────────────────────────────────────
@@ -1076,6 +1186,20 @@ export const api = {
         accessToken,
       ),
 
+    unpost: (id: string, accessToken: string) =>
+      request<{ id: string; voucherNumber: string }>(
+        `/api/sales-invoices/${id}/unpost`,
+        { method: "PATCH" },
+        accessToken,
+      ),
+
+    post: (id: string, accessToken: string) =>
+      request<{ id: string; voucherNumber: string }>(
+        `/api/sales-invoices/${id}/post`,
+        { method: "PATCH" },
+        accessToken,
+      ),
+
     issueInvoice: (id: string, accessToken: string) =>
       request<{
         id: string;
@@ -1230,6 +1354,31 @@ export const api = {
         {},
         accessToken,
       ),
+    list: (
+      accessToken: string,
+      params?: {
+        q?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        page?: number;
+        limit?: number;
+      },
+    ) => {
+      const p = new URLSearchParams();
+      if (params?.q) p.set("q", params.q);
+      if (params?.dateFrom) p.set("dateFrom", params.dateFrom);
+      if (params?.dateTo) p.set("dateTo", params.dateTo);
+      if (params?.page) p.set("page", String(params.page));
+      if (params?.limit) p.set("limit", String(params.limit));
+      const suffix = p.toString() ? `?${p.toString()}` : "";
+      return request<ReceiptListResult>(
+        `/api/receipts${suffix}`,
+        {},
+        accessToken,
+      );
+    },
+    getById: (id: string, accessToken: string) =>
+      request<ReceiptFull>(`/api/receipts/${id}`, {}, accessToken),
     create: (body: CreateReceiptPayload, accessToken: string) =>
       request<{ id: string; receiptNumber: string }>(
         "/api/receipts",
@@ -1245,6 +1394,31 @@ export const api = {
         {},
         accessToken,
       ),
+    list: (
+      accessToken: string,
+      params?: {
+        q?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        page?: number;
+        limit?: number;
+      },
+    ) => {
+      const p = new URLSearchParams();
+      if (params?.q) p.set("q", params.q);
+      if (params?.dateFrom) p.set("dateFrom", params.dateFrom);
+      if (params?.dateTo) p.set("dateTo", params.dateTo);
+      if (params?.page) p.set("page", String(params.page));
+      if (params?.limit) p.set("limit", String(params.limit));
+      const suffix = p.toString() ? `?${p.toString()}` : "";
+      return request<PaymentListResult>(
+        `/api/payments${suffix}`,
+        {},
+        accessToken,
+      );
+    },
+    getById: (id: string, accessToken: string) =>
+      request<PaymentFull>(`/api/payments/${id}`, {}, accessToken),
     create: (body: CreatePaymentPayload, accessToken: string) =>
       request<{ id: string; paymentNumber: string }>(
         "/api/payments",
@@ -1316,6 +1490,13 @@ export const api = {
       request<null>(
         `/api/purchase-invoices/${id}`,
         { method: "DELETE" },
+        accessToken,
+      ),
+
+    unpost: (id: string, accessToken: string) =>
+      request<{ id: string; voucherNumber: string }>(
+        `/api/purchase-invoices/${id}/unpost`,
+        { method: "PATCH" },
         accessToken,
       ),
 

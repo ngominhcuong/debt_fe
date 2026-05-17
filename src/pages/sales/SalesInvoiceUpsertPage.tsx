@@ -27,6 +27,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
+function generateId(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | Math.trunc(0);
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DetailRow {
@@ -43,7 +57,7 @@ interface DetailRow {
 
 function emptyRow(): DetailRow {
   return {
-    _key: crypto.randomUUID(),
+    _key: generateId(),
     itemId: "",
     warehouseId: "",
     description: "",
@@ -73,6 +87,7 @@ export default function SalesInvoiceUpsertPage() {
 
   // ── Master data ──────────────────────────────────────────────────────────
   const [customers, setCustomers] = useState<Partner[]>([]);
+  const [otherPartners, setOtherPartners] = useState<Partner[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
@@ -81,6 +96,10 @@ export default function SalesInvoiceUpsertPage() {
     api.master
       .listPartners(token, { partnerType: "CUSTOMER", isActive: true })
       .then((r) => setCustomers(r.data))
+      .catch(() => undefined);
+    api.master
+      .listPartners(token, { partnerType: "BOTH", isActive: true })
+      .then((r) => setOtherPartners(r.data))
       .catch(() => undefined);
     api.master
       .listItems(token, { isActive: true })
@@ -102,6 +121,7 @@ export default function SalesInvoiceUpsertPage() {
   // ── Header form ──────────────────────────────────────────────────────────
   const today = toLocalDateStr(new Date());
   const [customerId, setCustomerId] = useState("");
+  const [retailCustomerName, setRetailCustomerName] = useState("");
   const [description, setDescription] = useState("");
   const [accountingDate, setAccountingDate] = useState(today);
   const [voucherDate, setVoucherDate] = useState(today);
@@ -114,10 +134,16 @@ export default function SalesInvoiceUpsertPage() {
   const [paymentTermDays, setPaymentTermDays] = useState("");
   const [dueDate, setDueDate] = useState("");
 
-  // Auto-fill address/taxCode from selected customer
+  // Combine customers + other partners for selection
+  const allPartners = useMemo(
+    () => customers.concat(otherPartners),
+    [customers, otherPartners],
+  );
+
+  // Auto-fill address/taxCode from selected customer/partner
   const selectedCustomer = useMemo(
-    () => customers.find((c) => c.id === customerId),
-    [customers, customerId],
+    () => allPartners.find((c) => c.id === customerId),
+    [allPartners, customerId],
   );
 
   // Auto-calc due date when voucherDate or paymentTermDays change
@@ -229,7 +255,8 @@ export default function SalesInvoiceUpsertPage() {
       .getById(editId, token)
       .then((resp) => {
         const inv = resp.data;
-        setCustomerId(inv.customer.id);
+        setCustomerId(inv.customer?.id ?? "");
+        setRetailCustomerName(inv.retailCustomerName ?? "");
         setDescription(inv.description ?? "");
         setAccountingDate(inv.accountingDate.slice(0, 10));
         setVoucherDate(inv.voucherDate.slice(0, 10));
@@ -249,7 +276,7 @@ export default function SalesInvoiceUpsertPage() {
         if (inv.details && inv.details.length > 0) {
           setRows(
             inv.details.map((d) => ({
-              _key: crypto.randomUUID(),
+              _key: generateId(),
               itemId: d.item.id,
               warehouseId: d.warehouse?.id ?? "",
               description: d.description ?? "",
@@ -292,7 +319,8 @@ export default function SalesInvoiceUpsertPage() {
     return {
       voucherDate,
       accountingDate,
-      customerId,
+      customerId: customerId || undefined,
+      retailCustomerName: retailCustomerName.trim() || undefined,
       description: description || undefined,
       isPosted,
       isDelivered,
@@ -310,8 +338,8 @@ export default function SalesInvoiceUpsertPage() {
   }
 
   async function handleSave(isPosted: boolean) {
-    if (!customerId) {
-      toast.error("Vui lòng chọn khách hàng");
+    if (!customerId && !retailCustomerName.trim()) {
+      toast.error("Vui lòng chọn khách hàng hoặc nhập tên khách hàng lẻ");
       return;
     }
     if (rows.filter((r) => r.itemId).length === 0) {
@@ -457,21 +485,42 @@ export default function SalesInvoiceUpsertPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
                   {/* Row 1: Mã KH | Tên KH | MST/CCCD */}
                   <div className="space-y-1">
-                    <Label htmlFor="customer">
-                      Khách hàng <span className="text-destructive">*</span>
-                    </Label>
-                    <Select value={customerId} onValueChange={setCustomerId}>
-                      <SelectTrigger id="customer">
-                        <SelectValue placeholder="Chọn khách hàng..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.code} — {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="customer">Khách hàng</Label>
+                    <div className="relative">
+                      <Select
+                        value={customerId}
+                        onValueChange={(v) => {
+                          setCustomerId(v);
+                          if (v) setRetailCustomerName("");
+                        }}
+                      >
+                        <SelectTrigger id="customer">
+                          <SelectValue placeholder="Chọn KH / đối tác..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allPartners.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.code} — {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {customerId && (
+                        <button
+                          type="button"
+                          className="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs px-1"
+                          onClick={() => setCustomerId("")}
+                          title="Xóa chọn (dùng khách lẻ)"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    {!customerId && (
+                      <p className="text-xs text-muted-foreground">
+                        Hoặc nhập tên KH lẻ bên dưới
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label>Tên khách hàng</Label>
@@ -490,6 +539,23 @@ export default function SalesInvoiceUpsertPage() {
                       className="bg-muted"
                     />
                   </div>
+
+                  {/* Row 1b: Tên khách hàng lẻ (chỉ hiện khi không chọn KH) */}
+                  {!customerId && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label htmlFor="retailCustomerName">
+                        Tên khách hàng lẻ{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="retailCustomerName"
+                        value={retailCustomerName}
+                        onChange={(e) => setRetailCustomerName(e.target.value)}
+                        placeholder="Họ tên khách hàng lẻ (cá nhân không phải doanh nghiệp)..."
+                        maxLength={150}
+                      />
+                    </div>
+                  )}
 
                   {/* Row 2: Địa chỉ (span-2) | Người liên hệ */}
                   <div className="space-y-1 md:col-span-2">

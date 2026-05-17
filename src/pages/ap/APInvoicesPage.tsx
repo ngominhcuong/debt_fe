@@ -17,11 +17,22 @@ import {
   ArrowUp,
   ArrowDown,
   BookCheck,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
@@ -371,10 +382,19 @@ export default function APInvoicesPage() {
   const { session } = useAuth();
   const token = session?.access_token ?? "";
   const queryClient = useQueryClient();
+  const [postConfirmTarget, setPostConfirmTarget] = useState<{
+    id: string;
+    voucherNumber: string;
+  } | null>(null);
+  const [unpostConfirmTarget, setUnpostConfirmTarget] = useState<{
+    id: string;
+    voucherNumber: string;
+  } | null>(null);
 
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [postingId, setPostingId] = useState<string | null>(null);
+  const [unpostingId, setUnpostingId] = useState<string | null>(null);
 
   const [pendingDateFrom, setPendingDateFrom] = useState("");
   const [pendingDateTo, setPendingDateTo] = useState("");
@@ -454,7 +474,11 @@ export default function APInvoicesPage() {
     );
   }, [rows, search]);
 
-  const { data: detailData, isLoading: detailLoading } = useQuery({
+  const {
+    data: detailData,
+    isLoading: detailLoading,
+    isError: detailError,
+  } = useQuery({
     queryKey: ["purchase-invoice", selectedId, token],
     queryFn: async () => {
       if (!selectedId) {
@@ -555,12 +579,6 @@ export default function APInvoicesPage() {
       : `${totalRecords} bản ghi`;
 
   async function handlePostInvoice(id: string, voucherNumber: string) {
-    if (
-      !globalThis.confirm(
-        `Ghi sổ chứng từ ${voucherNumber}? Sau khi ghi sổ không thể chỉnh sửa.`,
-      )
-    )
-      return;
     setPostingId(id);
     try {
       await api.purchaseInvoice.post(id, token);
@@ -576,30 +594,140 @@ export default function APInvoicesPage() {
     }
   }
 
-  async function handleDeleteInvoice(id: string, voucherNumber: string) {
-    if (
-      !globalThis.confirm(
-        `Xóa chứng từ ${voucherNumber}? Thao tác này không thể hoàn tác.`,
-      )
-    )
-      return;
+  async function handleConfirmPostInvoice() {
+    if (!postConfirmTarget) return;
+
+    const { id, voucherNumber } = postConfirmTarget;
+    setPostConfirmTarget(null);
+    await handlePostInvoice(id, voucherNumber);
+  }
+
+  async function handleUnpostInvoice(id: string, voucherNumber: string) {
+    setUnpostingId(id);
     try {
-      await api.purchaseInvoice.delete(id, token);
-      toast.success(`Đã xóa chứng từ ${voucherNumber}`);
-      if (selectedId === id) setSelectedId(null);
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      await api.purchaseInvoice.unpost(id, token);
+      toast.success(`Đã bỏ ghi chứng từ ${voucherNumber}`);
       void queryClient.invalidateQueries({ queryKey: ["purchase-invoices"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["purchase-invoice", id],
+      });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lỗi khi xóa chứng từ");
+      toast.error(
+        err instanceof Error ? err.message : "Lỗi khi bỏ ghi chứng từ",
+      );
+    } finally {
+      setUnpostingId(null);
     }
+  }
+
+  async function handleConfirmUnpostInvoice() {
+    if (!unpostConfirmTarget) return;
+
+    const { id, voucherNumber } = unpostConfirmTarget;
+    setUnpostConfirmTarget(null);
+    await handleUnpostInvoice(id, voucherNumber);
   }
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
+      <AlertDialog
+        open={postConfirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPostConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md border-border/60 bg-card p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500/12 via-emerald-500/6 to-background px-6 pt-6 pb-4 border-b border-border/60">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600">
+                <BookCheck size={20} />
+              </div>
+              <AlertDialogHeader className="space-y-2 text-left">
+                <AlertDialogTitle className="text-base font-semibold text-foreground">
+                  Xác nhận ghi sổ chứng từ
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm leading-6 text-muted-foreground">
+                  {"Chứng từ "}
+                  <span className="font-semibold text-foreground">
+                    {postConfirmTarget?.voucherNumber}
+                  </span>
+                  {" sẽ được chuyển từ nháp sang đã ghi sổ."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+              Sau khi ghi sổ, chứng từ sẽ bị khóa chỉnh sửa. Nếu cần sửa lại,
+              bạn phải thực hiện thao tác bỏ ghi trước.
+            </div>
+          </div>
+
+          <AlertDialogFooter className="border-t border-border/60 bg-muted/20 px-6 py-4">
+            <AlertDialogCancel className="mt-0">Để sau</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmPostInvoice();
+              }}
+            >
+              Xác nhận ghi sổ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={unpostConfirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setUnpostConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md border-border/60 bg-card p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-sky-500/12 via-sky-500/6 to-background px-6 pt-6 pb-4 border-b border-border/60">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/12 text-sky-600">
+                <RotateCcw size={20} />
+              </div>
+              <AlertDialogHeader className="space-y-2 text-left">
+                <AlertDialogTitle className="text-base font-semibold text-foreground">
+                  Xác nhận bỏ ghi chứng từ
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm leading-6 text-muted-foreground">
+                  {"Chứng từ "}
+                  <span className="font-semibold text-foreground">
+                    {unpostConfirmTarget?.voucherNumber}
+                  </span>
+                  {" sẽ được chuyển về trạng thái nháp để tiếp tục chỉnh sửa."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="rounded-2xl border border-sky-200/70 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
+              Thao tác này sẽ gỡ trạng thái ghi sổ và mở lại quyền sửa chứng từ.
+              Sau đó bạn có thể cập nhật nội dung trước khi ghi sổ lại.
+            </div>
+          </div>
+
+          <AlertDialogFooter className="border-t border-border/60 bg-muted/20 px-6 py-4">
+            <AlertDialogCancel className="mt-0">Để sau</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-sky-600 text-white hover:bg-sky-700"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmUnpostInvoice();
+              }}
+            >
+              Xác nhận bỏ ghi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ResizablePanelGroup direction="vertical">
         {/* ── Top: list ── */}
         <ResizablePanel
@@ -929,6 +1057,7 @@ export default function APInvoicesPage() {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
                                     className="gap-2"
+                                    disabled={inv.isPosted}
                                     onClick={() =>
                                       navigate(`/ap/invoices/${inv.id}/edit`)
                                     }
@@ -941,10 +1070,10 @@ export default function APInvoicesPage() {
                                       inv.isPosted || postingId === inv.id
                                     }
                                     onClick={() =>
-                                      handlePostInvoice(
-                                        inv.id,
-                                        inv.voucherNumber,
-                                      )
+                                      setPostConfirmTarget({
+                                        id: inv.id,
+                                        voucherNumber: inv.voucherNumber,
+                                      })
                                     }
                                   >
                                     {postingId === inv.id ? (
@@ -958,16 +1087,26 @@ export default function APInvoicesPage() {
                                     Ghi sổ
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    className="text-destructive"
-                                    disabled={inv.isPosted}
+                                    className="gap-2"
+                                    disabled={
+                                      !inv.isPosted || unpostingId === inv.id
+                                    }
                                     onClick={() =>
-                                      handleDeleteInvoice(
-                                        inv.id,
-                                        inv.voucherNumber,
-                                      )
+                                      setUnpostConfirmTarget({
+                                        id: inv.id,
+                                        voucherNumber: inv.voucherNumber,
+                                      })
                                     }
                                   >
-                                    Xóa
+                                    {unpostingId === inv.id ? (
+                                      <Loader2
+                                        size={13}
+                                        className="animate-spin"
+                                      />
+                                    ) : (
+                                      <RotateCcw size={13} />
+                                    )}
+                                    Bỏ ghi
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -1038,75 +1177,79 @@ export default function APInvoicesPage() {
           className="flex flex-col overflow-hidden bg-card"
         >
           {selectedId ? (
-            <>
-              <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
-                <span className="text-sm font-semibold text-primary">
-                  {selectedListItem?.voucherNumber ?? selectedId}
-                </span>
-                {selectedListItem && (
-                  <>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs text-foreground">
-                      {selectedListItem.supplier.name}
-                    </span>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs text-muted-foreground">
-                      {fmtDate(selectedListItem.voucherDate)}
-                    </span>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs font-mono font-medium">
-                      {fmtVND(selectedListItem.grandTotal)} VND
-                    </span>
-                    <span className="ml-auto">
-                      <VoucherStatusBadge
-                        isPosted={selectedListItem.isPosted}
-                      />
-                    </span>
-                  </>
-                )}
+            detailLoading ? (
+              <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Đang tải chi tiết chứng từ...</span>
               </div>
-              <Tabs
-                defaultValue="hang-tien"
-                className="flex flex-col flex-1 min-h-0 overflow-hidden"
-              >
-                <TabsList className="h-9 px-2 rounded-none border-b border-border justify-start bg-transparent gap-0 shrink-0">
-                  {(
-                    [
-                      { value: "hang-tien", label: "Hàng tiền" },
-                      { value: "thong-ke", label: "Thống kê" },
-                    ] as const
-                  ).map((tab) => (
-                    <TabsTrigger
-                      key={tab.value}
-                      value={tab.value}
-                      className="rounded-none px-4 h-full text-xs border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                <TabsContent
-                  value="hang-tien"
-                  className="flex-1 min-h-0 overflow-auto m-0 p-0"
+            ) : detailError || !detailData ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
+                <AlertCircle size={20} />
+                <p className="text-sm">Không thể tải chi tiết chứng từ.</p>
+              </div>
+            ) : (
+              <>
+                <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
+                  <span className="text-sm font-semibold text-primary">
+                    {selectedListItem?.voucherNumber ?? selectedId}
+                  </span>
+                  {selectedListItem && (
+                    <>
+                      <span className="text-muted-foreground text-xs">|</span>
+                      <span className="text-xs text-foreground">
+                        {selectedListItem.supplier.name}
+                      </span>
+                      <span className="text-muted-foreground text-xs">|</span>
+                      <span className="text-xs text-muted-foreground">
+                        {fmtDate(selectedListItem.voucherDate)}
+                      </span>
+                      <span className="text-muted-foreground text-xs">|</span>
+                      <span className="text-xs font-mono font-medium">
+                        {fmtVND(selectedListItem.grandTotal)} VND
+                      </span>
+                      <span className="ml-auto">
+                        <VoucherStatusBadge
+                          isPosted={selectedListItem.isPosted}
+                        />
+                      </span>
+                    </>
+                  )}
+                </div>
+                <Tabs
+                  defaultValue="hang-tien"
+                  className="flex flex-col flex-1 min-h-0 overflow-hidden"
                 >
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : (
+                  <TabsList className="h-9 px-2 rounded-none border-b border-border justify-start bg-transparent gap-0 shrink-0">
+                    {(
+                      [
+                        { value: "hang-tien", label: "Hàng tiền" },
+                        { value: "thong-ke", label: "Thống kê" },
+                      ] as const
+                    ).map((tab) => (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className="rounded-none px-4 h-full text-xs border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
+                      >
+                        {tab.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                  <TabsContent
+                    value="hang-tien"
+                    className="flex-1 min-h-0 overflow-auto m-0 p-0"
+                  >
                     <HangTienTab invoice={detailData} />
-                  )}
-                </TabsContent>
-                <TabsContent
-                  value="thong-ke"
-                  className="flex-1 min-h-0 overflow-auto m-0"
-                >
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : (
+                  </TabsContent>
+                  <TabsContent
+                    value="thong-ke"
+                    className="flex-1 min-h-0 overflow-auto m-0"
+                  >
                     <ThongKeTab invoice={detailData} />
-                  )}
-                </TabsContent>
-              </Tabs>
-            </>
+                  </TabsContent>
+                </Tabs>
+              </>
+            )
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
               Chọn một chứng từ để xem chi tiết

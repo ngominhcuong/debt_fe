@@ -33,6 +33,7 @@ import AccountUpsertPage from "./pages/master/AccountUpsertPage";
 import ARContractsPage from "./pages/ar/ARContractsPage";
 import ARInvoicesPage from "./pages/ar/ARInvoicesPage";
 import ARReceiptsPage from "./pages/ar/ARReceiptsPage";
+import ARReceiptDetailPage from "./pages/ar/ARReceiptDetailPage";
 import AROverduePage from "./pages/ar/AROverduePage";
 import ARDebtsPage from "./pages/ar/ARDebtsPage";
 import APContractsPage from "./pages/ap/APContractsPage";
@@ -40,6 +41,7 @@ import APInvoicesPage from "./pages/ap/APInvoicesPage";
 import APInvoiceUpsertPage from "./pages/ap/APInvoiceUpsertPage";
 import APPaymentRequestsPage from "./pages/ap/APPaymentRequestsPage";
 import APPaymentsPage from "./pages/ap/APPaymentsPage";
+import APPaymentDetailPage from "./pages/ap/APPaymentDetailPage";
 import APDebtsPage from "./pages/ap/APDebtsPage";
 import SalesInvoiceUpsertPage from "./pages/sales/SalesInvoiceUpsertPage";
 import SalesInvoicesPage from "./pages/sales/SalesInvoicesPage";
@@ -163,6 +165,10 @@ const App = () => (
                 <Route path="/ar/contracts" element={<ARContractsPage />} />
                 <Route path="/ar/invoices" element={<ARInvoicesPage />} />
                 <Route path="/ar/receipts" element={<ARReceiptsPage />} />
+                <Route
+                  path="/ar/receipts/:id"
+                  element={<ARReceiptDetailPage />}
+                />
                 <Route path="/ar/overdue" element={<AROverduePage />} />
                 <Route path="/ar/debts" element={<ARDebtsPage />} />
                 <Route path="/ap/contracts" element={<APContractsPage />} />
@@ -180,6 +186,10 @@ const App = () => (
                   element={<APPaymentRequestsPage />}
                 />
                 <Route path="/ap/payments" element={<APPaymentsPage />} />
+                <Route
+                  path="/ap/payments/:id"
+                  element={<APPaymentDetailPage />}
+                />
                 <Route path="/ap/debts" element={<APDebtsPage />} />
                 <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
                 <Route

@@ -483,26 +483,24 @@ export default function OpeningBalancePage() {
               <AlertTriangle size={18} className="text-amber-500" />
               Xác nhận chốt sổ tháng {month}/{year}
             </DialogTitle>
-            <DialogDescription>
-              Thao tác này sẽ:
-              <ul className="mt-2 space-y-1 text-sm list-disc list-inside">
-                <li>
-                  Khóa kỳ{" "}
-                  <strong>
-                    {month}/{year}
-                  </strong>{" "}
-                  — không thể sửa số dư đầu kỳ sau khi chốt
-                </li>
-                <li>Tính số dư cuối kỳ cho tất cả tài khoản</li>
-                <li>
-                  Tự động tạo số dư đầu kỳ cho tháng{" "}
-                  <strong>
-                    {month === 12 ? 1 : month + 1}/
-                    {month === 12 ? year + 1 : year}
-                  </strong>
-                </li>
-              </ul>
-            </DialogDescription>
+            <DialogDescription>Thao tác này sẽ:</DialogDescription>
+            <ul className="mt-2 space-y-1 text-sm list-disc list-inside text-muted-foreground">
+              <li>
+                Khóa kỳ{" "}
+                <strong>
+                  {month}/{year}
+                </strong>{" "}
+                — không thể sửa số dư đầu kỳ sau khi chốt
+              </li>
+              <li>Tính số dư cuối kỳ cho tất cả tài khoản</li>
+              <li>
+                Tự động tạo số dư đầu kỳ cho tháng{" "}
+                <strong>
+                  {month === 12 ? 1 : month + 1}/
+                  {month === 12 ? year + 1 : year}
+                </strong>
+              </li>
+            </ul>
           </DialogHeader>
           <DialogFooter>
             <Button

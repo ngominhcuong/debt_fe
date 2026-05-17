@@ -135,6 +135,20 @@ function getFallbackPageMeta(pathname: string) {
     } as const;
   }
 
+  if (pathname.startsWith("/ar/receipts/")) {
+    return {
+      title: "Thu tiền",
+      subtitle: "Chi tiết phiếu thu",
+    } as const;
+  }
+
+  if (pathname.startsWith("/ap/payments/")) {
+    return {
+      title: "Chi tiền",
+      subtitle: "Chi tiết phiếu chi",
+    } as const;
+  }
+
   if (pathname.startsWith("/ap/invoices/")) {
     return {
       title: "Chứng từ mua hàng",

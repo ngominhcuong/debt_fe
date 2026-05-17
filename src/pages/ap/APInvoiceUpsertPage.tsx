@@ -26,6 +26,20 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+function generateId(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.trunc(Math.random() * 16);
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DetailRow {
@@ -42,7 +56,7 @@ interface DetailRow {
 
 function emptyRow(): DetailRow {
   return {
-    _key: crypto.randomUUID(),
+    _key: generateId(),
     itemId: "",
     warehouseId: "",
     description: "",
@@ -72,6 +86,7 @@ export default function APInvoiceUpsertPage() {
 
   // ── Master data ──────────────────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState<Partner[]>([]);
+  const [otherPartners, setOtherPartners] = useState<Partner[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
 
@@ -80,6 +95,14 @@ export default function APInvoiceUpsertPage() {
     api.master
       .listPartners(token, { partnerType: "SUPPLIER", isActive: true })
       .then((r) => setSuppliers(r.data))
+      .catch(() => undefined);
+    api.master
+      .listPartners(token, { isActive: true })
+      .then((r) => {
+        // Filter out SUPPLIER type to show as "other partners"
+        const others = r.data.filter((p) => p.partnerType !== "SUPPLIER");
+        setOtherPartners(others);
+      })
       .catch(() => undefined);
     api.master
       .listItems(token, { isActive: true })
@@ -94,6 +117,7 @@ export default function APInvoiceUpsertPage() {
   // ── Header form ──────────────────────────────────────────────────────────
   const today = toLocalDateStr(new Date());
   const [supplierId, setSupplierId] = useState("");
+  const [retailCustomerName, setRetailCustomerName] = useState("");
   const [description, setDescription] = useState("");
   const [accountingDate, setAccountingDate] = useState(today);
   const [voucherDate, setVoucherDate] = useState(today);
@@ -117,9 +141,15 @@ export default function APInvoiceUpsertPage() {
   const [invoiceSeries, setInvoiceSeries] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(today);
 
+  // Combine suppliers + other partners for selection
+  const allPartners = useMemo(
+    () => suppliers.concat(otherPartners),
+    [suppliers, otherPartners],
+  );
+
   const selectedSupplier = useMemo(
-    () => suppliers.find((s) => s.id === supplierId),
-    [suppliers, supplierId],
+    () => allPartners.find((s) => s.id === supplierId),
+    [allPartners, supplierId],
   );
 
   // Auto-calc due date when voucherDate or paymentTermDays change
@@ -200,6 +230,7 @@ export default function APInvoiceUpsertPage() {
       .then((resp) => {
         const inv = resp.data;
         setSupplierId(inv.supplier.id);
+        setRetailCustomerName(inv.retailCustomerName ?? "");
         setDescription(inv.description ?? "");
         setAccountingDate(inv.accountingDate.slice(0, 10));
         setVoucherDate(inv.voucherDate.slice(0, 10));
@@ -217,7 +248,7 @@ export default function APInvoiceUpsertPage() {
         if (inv.details && inv.details.length > 0) {
           setRows(
             inv.details.map((d) => ({
-              _key: crypto.randomUUID(),
+              _key: generateId(),
               itemId: d.item.id,
               warehouseId: d.warehouse?.id ?? "",
               description: d.description ?? "",
@@ -261,6 +292,7 @@ export default function APInvoiceUpsertPage() {
       voucherDate,
       accountingDate,
       supplierId,
+      retailCustomerName: retailCustomerName || undefined,
       description: description || undefined,
       isPosted,
       invoiceNumber: invoiceNumber || undefined,
@@ -412,10 +444,10 @@ export default function APInvoiceUpsertPage() {
                     </Label>
                     <Select value={supplierId} onValueChange={setSupplierId}>
                       <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Chọn NCC..." />
+                        <SelectValue placeholder="Chọn NCC / đối tác..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {suppliers.map((s) => (
+                        {allPartners.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.code} — {s.name}
                           </SelectItem>
@@ -441,6 +473,20 @@ export default function APInvoiceUpsertPage() {
                       readOnly
                       value={selectedSupplier?.taxCode ?? ""}
                       className="h-8 text-sm bg-muted"
+                    />
+                  </div>
+
+                  {/* Row 1.5: Khách hàng lẻ */}
+                  <div className="col-span-3 space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Khách hàng lẻ (không phải công ty)
+                    </Label>
+                    <Input
+                      value={retailCustomerName}
+                      onChange={(e) => setRetailCustomerName(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Tên khách hàng lẻ (nếu không phải công ty)..."
+                      maxLength={200}
                     />
                   </div>
 

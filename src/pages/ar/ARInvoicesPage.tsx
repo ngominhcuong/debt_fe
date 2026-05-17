@@ -837,7 +837,11 @@ export default function ARInvoicesPage() {
                   <td className="px-3 py-2">
                     <InvoiceStatusBadge status={inv.invoiceStatus} />
                   </td>
-                  <td className="px-3 py-2 text-xs">{inv.customer.name}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {inv.customer?.name ??
+                      inv.retailCustomerName ??
+                      "(Khách lẻ)"}
+                  </td>
                   <td className="px-3 py-2 text-right text-xs font-mono font-medium">
                     {fmtVND(inv.grandTotal)}
                   </td>
@@ -1205,8 +1209,12 @@ export default function ARInvoicesPage() {
                       {selectedItem.invoiceNumber ?? selectedItem.voucherNumber}
                     </span>
                     <span className="text-muted-foreground">|</span>
-                    <span>{selectedItem.customer.name}</span>
-                    {selectedItem.customer.taxCode && (
+                    <span>
+                      {selectedItem.customer?.name ??
+                        selectedItem.retailCustomerName ??
+                        "(Khách lẻ)"}
+                    </span>
+                    {selectedItem.customer?.taxCode && (
                       <>
                         <span className="text-muted-foreground">|</span>
                         <span className="text-muted-foreground">

@@ -1,3 +1,4 @@
+import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -118,8 +119,11 @@ export default function SalesInvoiceDetailPage() {
 
   const inv = resp?.data;
 
+  const [issuing, setIssuing] = React.useState(false);
+
   async function handleIssue() {
     if (!id) return;
+    setIssuing(true);
     try {
       const result = await api.salesInvoice.issueInvoice(id, token);
       toast.success(result.message ?? "Phát hành hóa đơn thành công");
@@ -129,6 +133,8 @@ export default function SalesInvoiceDetailPage() {
       toast.error(
         err instanceof Error ? err.message : "Lỗi khi phát hành hóa đơn",
       );
+    } finally {
+      setIssuing(false);
     }
   }
 
@@ -175,7 +181,9 @@ export default function SalesInvoiceDetailPage() {
             <h1 className="text-xl font-semibold leading-tight">
               {inv.voucherNumber}
             </h1>
-            <p className="text-sm text-muted-foreground">{inv.customer.name}</p>
+            <p className="text-sm text-muted-foreground">
+              {inv.customer?.name ?? inv.retailCustomerName ?? "(Khách lẻ)"}
+            </p>
           </div>
           <div className="flex items-center gap-2 ml-2">
             <VoucherStatusBadge isPosted={inv.isPosted} />
@@ -192,9 +200,19 @@ export default function SalesInvoiceDetailPage() {
               size="sm"
               className="gap-1.5"
               onClick={handleIssue}
+              disabled={issuing}
             >
-              <SendHorizontal size={14} />
-              Phát hành hóa đơn
+              {issuing ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Đang phát hành...
+                </>
+              ) : (
+                <>
+                  <SendHorizontal size={14} />
+                  Phát hành hóa đơn
+                </>
+              )}
             </Button>
           )}
           {!inv.isPosted && (
@@ -225,13 +243,21 @@ export default function SalesInvoiceDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
-              <InfoRow label="Mã khách hàng" value={inv.customer.code} />
-              <InfoRow label="Tên khách hàng" value={inv.customer.name} />
+              <InfoRow
+                label="Mã khách hàng"
+                value={inv.customer?.code ?? "—"}
+              />
+              <InfoRow
+                label="Tên khách hàng"
+                value={
+                  inv.customer?.name ?? inv.retailCustomerName ?? "(Khách lẻ)"
+                }
+              />
               <InfoRow
                 label="Mã số thuế / CCCD"
-                value={inv.customer.taxCode ?? "—"}
+                value={inv.customer?.taxCode ?? "—"}
               />
-              <InfoRow label="Địa chỉ" value={inv.customer.address ?? "—"} />
+              <InfoRow label="Địa chỉ" value={inv.customer?.address ?? "—"} />
               <InfoRow label="Người liên hệ" value={inv.contactPerson ?? "—"} />
               <InfoRow
                 label="Nhân viên bán hàng"

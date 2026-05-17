@@ -17,11 +17,23 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
+  BookCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import {
@@ -83,10 +95,7 @@ function VoucherStatusBadge({ isPosted }: Readonly<{ isPosted: boolean }>) {
     );
   }
   return (
-    <Badge
-      variant="outline"
-      className="bg-muted text-muted-foreground border text-xs"
-    >
+    <Badge className="bg-muted text-muted-foreground border text-xs">
       Nháp
     </Badge>
   );
@@ -116,7 +125,7 @@ function InvoiceStatusBadge({ status }: Readonly<{ status: InvoiceStatus }>) {
   );
 }
 
-// --- Detail panel – Hàng tiền tab ---
+// --- Detail panel — Hàng tiền tab ---
 
 function HangTienTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
   const totalQty = invoice.details.reduce(
@@ -248,7 +257,7 @@ function HangTienTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
   );
 }
 
-// --- Detail panel – Thống kê tab ---
+// --- Detail panel — Thống kê tab ---
 
 function ThongKeTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
   const rows: Array<
@@ -279,19 +288,21 @@ function ThongKeTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
       type: "row",
       id: "khach-hang",
       label: "Khách hàng",
-      value: `${invoice.customer.code} — ${invoice.customer.name}`,
+      value: invoice.customer
+        ? `${invoice.customer.code} — ${invoice.customer.name}`
+        : (invoice.retailCustomerName ?? "(Khách lẻ)"),
     },
     {
       type: "row",
       id: "mst",
       label: "Mã số thuế / CCCD",
-      value: invoice.customer.taxCode ?? "—",
+      value: invoice.customer?.taxCode ?? "—",
     },
     {
       type: "row",
       id: "dia-chi",
       label: "Địa chỉ",
-      value: invoice.customer.address ?? "—",
+      value: invoice.customer?.address ?? "—",
     },
     {
       type: "row",
@@ -367,7 +378,7 @@ function ThongKeTab({ invoice }: Readonly<{ invoice: SalesInvoiceFull }>) {
     {
       type: "row",
       id: "kiem-phieu-xuat",
-      label: "Kiêm phiếu xuất kho",
+      label: "Kèm phiếu xuất kho",
       value: invoice.isDelivered ? "Có" : "Không",
     },
     {
@@ -467,7 +478,7 @@ function exportToCsv(rows: SalesInvoiceListItem[]) {
   const csvRows = rows.map((r) => [
     r.voucherNumber,
     fmtDate(r.accountingDate),
-    r.customer.name,
+    r.customer?.name ?? r.retailCustomerName ?? "(Khách lẻ)",
     r.grandTotal,
     r.invoiceNumber ?? "",
     r.isPosted ? "Đã ghi sổ" : "Nháp",
@@ -499,10 +510,16 @@ export default function SalesInvoicesPage() {
 
   const queryClient = useQueryClient();
 
-  // ── Search & basic filters ───────────────────────────────────────────────
+  // -- Search & basic filters -----------------------------------------------
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [issuingId, setIssuingId] = useState<string | null>(null);
+  const [postingId, setPostingId] = useState<string | null>(null);
+  const [unpostingId, setUnpostingId] = useState<string | null>(null);
+  const [unpostConfirmTarget, setUnpostConfirmTarget] = useState<{
+    id: string;
+    voucherNumber: string;
+  } | null>(null);
 
   // Filter panel state (pending = what user sees; applied = what query uses)
   const [pendingDateFrom, setPendingDateFrom] = useState("");
@@ -532,7 +549,7 @@ export default function SalesInvoicesPage() {
     boolean | undefined
   >(undefined);
 
-  // ── Sort ────────────────────────────────────────────────────────────────
+  // -- Sort ----------------------------------------------------------------
   const [sortBy, setSortBy] = useState<"accountingDate" | "grandTotal">(
     "accountingDate",
   );
@@ -548,7 +565,7 @@ export default function SalesInvoicesPage() {
     setPage(1);
   }
 
-  // ── Selection & pagination ──────────────────────────────────────────────
+  // -- Selection & pagination ----------------------------------------------
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -600,11 +617,17 @@ export default function SalesInvoicesPage() {
     return rows.filter(
       (r) =>
         r.voucherNumber.toLowerCase().includes(q) ||
-        r.customer.name.toLowerCase().includes(q),
+        (r.customer?.name ?? r.retailCustomerName ?? "")
+          .toLowerCase()
+          .includes(q),
     );
   }, [rows, search]);
 
-  const { data: detailData, isLoading: detailLoading } = useQuery({
+  const {
+    data: detailData,
+    isLoading: detailLoading,
+    isError: detailError,
+  } = useQuery({
     queryKey: ["sales-invoice", selectedId, token],
     queryFn: async () => {
       if (!selectedId) {
@@ -640,7 +663,7 @@ export default function SalesInvoicesPage() {
     });
   }
 
-  // ── Date preset helper ──────────────────────────────────────────────────
+  // -- Date preset helper --------------------------------------------------
   function applyDatePreset(preset: string) {
     setPendingDatePreset(preset);
     const now = new Date();
@@ -709,6 +732,22 @@ export default function SalesInvoicesPage() {
 
   const totalPages = Math.ceil((listData?.total ?? 0) / PAGE_LIMIT);
 
+  async function handlePostInvoice(id: string) {
+    setPostingId(id);
+    try {
+      const result = await api.salesInvoice.post(id, token);
+      toast.success(`Ghi sổ thành công — ${result.data.voucherNumber}`);
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoice", id] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Lỗi khi ghi sổ chứng từ",
+      );
+    } finally {
+      setPostingId(null);
+    }
+  }
+
   async function handleIssueInvoice(id: string) {
     setIssuingId(id);
     try {
@@ -728,32 +767,34 @@ export default function SalesInvoicesPage() {
     }
   }
 
-  async function handleDeleteInvoice(id: string, voucherNumber: string) {
-    if (
-      !globalThis.confirm(
-        `Xóa chứng từ ${voucherNumber}? Thao tác này không thể hoàn tác.`,
-      )
-    )
-      return;
+  async function handleUnpostInvoice(id: string, voucherNumber: string) {
+    setUnpostingId(id);
     try {
-      await api.salesInvoice.delete(id, token);
-      toast.success(`Đã xóa chứng từ ${voucherNumber}`);
-      if (selectedId === id) setSelectedId(null);
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      await api.salesInvoice.unpost(id, token);
+      toast.success(`Đã bỏ ghi chứng từ ${voucherNumber}`);
       void queryClient.invalidateQueries({ queryKey: ["sales-invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["sales-invoice", id] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lỗi khi xóa chứng từ");
+      toast.error(
+        err instanceof Error ? err.message : "Lỗi khi bỏ ghi chứng từ",
+      );
+    } finally {
+      setUnpostingId(null);
     }
+  }
+
+  async function handleConfirmUnpostInvoice() {
+    if (!unpostConfirmTarget) return;
+
+    const { id, voucherNumber } = unpostConfirmTarget;
+    setUnpostConfirmTarget(null);
+    await handleUnpostInvoice(id, voucherNumber);
   }
 
   const selectedListItem =
     filteredRows.find((r) => r.id === selectedId) ?? null;
 
-  // ── Active filter count badge ────────────────────────────────────────────
+  // -- Active filter count badge --------------------------------------------
   const activeFilterCount = [
     appliedIsPosted !== undefined,
     appliedIsInvoiced !== undefined,
@@ -884,7 +925,11 @@ export default function SalesInvoicesPage() {
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {fmtDate(inv.accountingDate)}
                   </td>
-                  <td className="px-3 py-2 text-xs">{inv.customer.name}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {inv.customer?.name ??
+                      inv.retailCustomerName ??
+                      "(Khách lẻ)"}
+                  </td>
                   <td className="px-3 py-2 text-right text-xs font-mono font-medium">
                     {fmtVND(inv.grandTotal)}
                   </td>
@@ -898,7 +943,12 @@ export default function SalesInvoicesPage() {
                     {inv.isInvoiced ? (
                       <InvoiceStatusBadge status={inv.invoiceStatus} />
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <Badge
+                        variant="outline"
+                        className="text-xs text-muted-foreground border-dashed"
+                      >
+                        Chưa lập HĐ
+                      </Badge>
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -921,7 +971,25 @@ export default function SalesInvoicesPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           className="gap-2"
+                          disabled={inv.isPosted || postingId === inv.id}
+                          onClick={() => handlePostInvoice(inv.id)}
+                        >
+                          {postingId === inv.id ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              Đang ghi sổ…
+                            </>
+                          ) : (
+                            <>
+                              <BookCheck size={13} />
+                              Ghi sổ
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2"
                           disabled={
+                            !inv.isPosted ||
                             inv.invoiceStatus === "ISSUED" ||
                             issuingId === inv.id
                           }
@@ -945,6 +1013,7 @@ export default function SalesInvoicesPage() {
                           Xem
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          disabled={inv.isPosted}
                           onClick={() =>
                             navigate(`/sales/invoices/${inv.id}/edit`)
                           }
@@ -952,15 +1021,25 @@ export default function SalesInvoicesPage() {
                           Sửa
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-destructive"
+                          className="gap-2"
                           disabled={
-                            inv.isPosted || inv.invoiceStatus !== "DRAFT"
+                            !inv.isPosted ||
+                            inv.invoiceStatus === "ISSUED" ||
+                            unpostingId === inv.id
                           }
                           onClick={() =>
-                            handleDeleteInvoice(inv.id, inv.voucherNumber)
+                            setUnpostConfirmTarget({
+                              id: inv.id,
+                              voucherNumber: inv.voucherNumber,
+                            })
                           }
                         >
-                          Xóa
+                          {unpostingId === inv.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <RotateCcw size={13} />
+                          )}
+                          Bỏ ghi
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -998,7 +1077,7 @@ export default function SalesInvoicesPage() {
       : `${totalRecords} bản ghi`;
 
   let thueContent: React.ReactNode = <DetailSkeleton />;
-  if (!detailLoading && detailData) {
+  if (detailData) {
     if (detailData.isInvoiced) {
       thueContent = (
         <div className="p-4 grid grid-cols-2 gap-4">
@@ -1021,7 +1100,7 @@ export default function SalesInvoicesPage() {
             <InvoiceStatusBadge status={detailData.invoiceStatus} />
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">Thuế GTGT</span>
+            <span className="text-xs text-muted-foreground">Thu? GTGT</span>
             <span className="text-sm font-semibold">
               {fmtVND(detailData.vatAmount)} VND
             </span>
@@ -1037,8 +1116,222 @@ export default function SalesInvoicesPage() {
     }
   }
 
+  let detailPanelContent: React.ReactNode;
+  if (!selectedId) {
+    detailPanelContent = (
+      <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+        Chọn một chứng từ để xem chi tiết
+      </div>
+    );
+  } else if (detailLoading) {
+    detailPanelContent = (
+      <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span className="text-sm">Đang tải chi tiết chứng từ...</span>
+      </div>
+    );
+  } else if (detailError || !detailData) {
+    detailPanelContent = (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-destructive">
+        <AlertCircle size={20} />
+        <p className="text-sm">Không thể tải chi tiết chứng từ.</p>
+      </div>
+    );
+  } else {
+    detailPanelContent = (
+      <>
+        <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
+          <span className="text-sm font-semibold text-primary">
+            {selectedListItem?.voucherNumber ?? selectedId}
+          </span>
+          {selectedListItem && (
+            <>
+              <span className="text-muted-foreground text-xs">|</span>
+              <span className="text-xs text-foreground">
+                {selectedListItem.customer?.name ??
+                  selectedListItem.retailCustomerName ??
+                  "(Khách lẻ)"}
+              </span>
+              <span className="text-muted-foreground text-xs">|</span>
+              <span className="text-xs text-muted-foreground">
+                {fmtDate(selectedListItem.voucherDate)}
+              </span>
+              <span className="text-muted-foreground text-xs">|</span>
+              <span className="text-xs font-mono font-medium">
+                {fmtVND(selectedListItem.grandTotal)} VND
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <VoucherStatusBadge isPosted={selectedListItem.isPosted} />
+                {selectedListItem.isInvoiced && (
+                  <InvoiceStatusBadge status={selectedListItem.invoiceStatus} />
+                )}
+              </span>
+            </>
+          )}
+        </div>
+
+        <Tabs
+          defaultValue="hang-tien"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+        >
+          <TabsList className="h-9 px-2 rounded-none border-b border-border justify-start bg-transparent gap-0 shrink-0">
+            {(
+              [
+                { value: "hang-tien", label: "Hàng tiền" },
+                { value: "thong-ke", label: "Thống kê" },
+                { value: "thue", label: "Thuế" },
+                { value: "gia-von", label: "Giá vốn" },
+              ] as const
+            ).map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="rounded-none px-4 h-full text-xs border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent
+            value="hang-tien"
+            className="flex-1 min-h-0 overflow-auto m-0 p-0"
+          >
+            <HangTienTab invoice={detailData} />
+          </TabsContent>
+
+          <TabsContent
+            value="thong-ke"
+            className="flex-1 min-h-0 overflow-auto m-0"
+          >
+            <ThongKeTab invoice={detailData} />
+          </TabsContent>
+
+          <TabsContent value="thue" className="flex-1 m-0 overflow-auto">
+            {thueContent}
+          </TabsContent>
+
+          <TabsContent value="gia-von" className="flex-1 m-0 overflow-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm z-10">
+                <tr className="border-b border-border">
+                  {[
+                    "STT",
+                    "Mã hàng",
+                    "Tên hàng",
+                    "ĐVT",
+                    "SL",
+                    "Giá vốn đơn vị",
+                    "Giá vốn tổng",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap first:text-center"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detailData.details.map((d, i) => {
+                  const qty = Number.parseFloat(d.qty);
+                  // gia von chua co trong detail - hien thi placeholder
+                  return (
+                    <tr
+                      key={d.id}
+                      className="border-b border-border/40 hover:bg-muted/30"
+                    >
+                      <td className="px-2 py-1.5 text-center text-muted-foreground">
+                        {i + 1}
+                      </td>
+                      <td className="px-2 py-1.5 font-medium text-primary">
+                        {d.item.sku}
+                      </td>
+                      <td className="px-2 py-1.5">{d.item.name}</td>
+                      <td className="px-2 py-1.5">{d.item.unit}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">
+                        {qty.toLocaleString("vi-VN")}
+                      </td>
+                      {d.item.itemType === "GOODS" ? (
+                        <>
+                          <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                            -
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
+                            -
+                          </td>
+                        </>
+                      ) : (
+                        <td
+                          className="px-2 py-1.5 text-muted-foreground text-center"
+                          colSpan={2}
+                        >
+                          Dịch vụ / không theo dõi kho
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TabsContent>
+        </Tabs>
+      </>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
+      <AlertDialog
+        open={unpostConfirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setUnpostConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-md border-border/60 bg-card p-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-sky-500/12 via-sky-500/6 to-background px-6 pt-6 pb-4 border-b border-border/60">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500/12 text-sky-600">
+                <RotateCcw size={20} />
+              </div>
+              <AlertDialogHeader className="space-y-2 text-left">
+                <AlertDialogTitle className="text-base font-semibold text-foreground">
+                  Xác nhận bỏ ghi chứng từ
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm leading-6 text-muted-foreground">
+                  {"Chứng từ "}
+                  <span className="font-semibold text-foreground">
+                    {unpostConfirmTarget?.voucherNumber}
+                  </span>
+                  {" sẽ được chuyển về trạng thái nháp để tiếp tục chỉnh sửa."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="rounded-2xl border border-sky-200/70 bg-sky-50/80 px-4 py-3 text-sm text-sky-900">
+              Thao tác này sẽ gỡ trạng thái ghi sổ và mở lại quyền sửa chứng từ.
+              Sau đó bạn có thể cập nhật nội dung trước khi ghi sổ lại.
+            </div>
+          </div>
+
+          <AlertDialogFooter className="border-t border-border/60 bg-muted/20 px-6 py-4">
+            <AlertDialogCancel className="mt-0">Để sau</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-sky-600 text-white hover:bg-sky-700"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmUnpostInvoice();
+              }}
+            >
+              Xác nhận bỏ ghi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ResizablePanelGroup direction="vertical">
         {/* Top: voucher list */}
         <ResizablePanel
@@ -1299,7 +1592,7 @@ export default function SalesInvoicesPage() {
             </span>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
-                Trang {page}/{totalPages || 1} — {(page - 1) * PAGE_LIMIT + 1}–
+                Trang {page}/{totalPages || 1} — {(page - 1) * PAGE_LIMIT + 1}—
                 {Math.min(page * PAGE_LIMIT, listData?.total ?? 0)} /{" "}
                 {listData?.total ?? 0}
               </span>
@@ -1335,168 +1628,7 @@ export default function SalesInvoicesPage() {
           minSize={20}
           className="flex flex-col overflow-hidden bg-card"
         >
-          {selectedId ? (
-            <>
-              <div className="px-4 py-2 border-b border-border flex items-center gap-3 shrink-0 flex-wrap">
-                <span className="text-sm font-semibold text-primary">
-                  {selectedListItem?.voucherNumber ?? selectedId}
-                </span>
-                {selectedListItem && (
-                  <>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs text-foreground">
-                      {selectedListItem.customer.name}
-                    </span>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs text-muted-foreground">
-                      {fmtDate(selectedListItem.voucherDate)}
-                    </span>
-                    <span className="text-muted-foreground text-xs">|</span>
-                    <span className="text-xs font-mono font-medium">
-                      {fmtVND(selectedListItem.grandTotal)} VND
-                    </span>
-                    <span className="ml-auto flex items-center gap-2">
-                      <VoucherStatusBadge
-                        isPosted={selectedListItem.isPosted}
-                      />
-                      {selectedListItem.isInvoiced && (
-                        <InvoiceStatusBadge
-                          status={selectedListItem.invoiceStatus}
-                        />
-                      )}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <Tabs
-                defaultValue="hang-tien"
-                className="flex flex-col flex-1 min-h-0 overflow-hidden"
-              >
-                <TabsList className="h-9 px-2 rounded-none border-b border-border justify-start bg-transparent gap-0 shrink-0">
-                  {(
-                    [
-                      { value: "hang-tien", label: "Hàng tiền" },
-                      { value: "thong-ke", label: "Thống kê" },
-                      { value: "thue", label: "Thuế" },
-                      { value: "gia-von", label: "Giá vốn" },
-                    ] as const
-                  ).map((tab) => (
-                    <TabsTrigger
-                      key={tab.value}
-                      value={tab.value}
-                      className="rounded-none px-4 h-full text-xs border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-
-                <TabsContent
-                  value="hang-tien"
-                  className="flex-1 min-h-0 overflow-auto m-0 p-0"
-                >
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : (
-                    <HangTienTab invoice={detailData} />
-                  )}
-                </TabsContent>
-
-                <TabsContent
-                  value="thong-ke"
-                  className="flex-1 min-h-0 overflow-auto m-0"
-                >
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : (
-                    <ThongKeTab invoice={detailData} />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="thue" className="flex-1 m-0 overflow-auto">
-                  {thueContent}
-                </TabsContent>
-
-                <TabsContent
-                  value="gia-von"
-                  className="flex-1 m-0 overflow-auto"
-                >
-                  {detailLoading || !detailData ? (
-                    <DetailSkeleton />
-                  ) : (
-                    <table className="w-full text-xs border-collapse">
-                      <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm z-10">
-                        <tr className="border-b border-border">
-                          {[
-                            "STT",
-                            "Mã hàng",
-                            "Tên hàng",
-                            "ĐVT",
-                            "SL",
-                            "Giá vốn đơn vị",
-                            "Giá vốn tổng",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="px-2 py-1.5 text-left font-medium text-muted-foreground whitespace-nowrap first:text-center"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detailData.details.map((d, i) => {
-                          const qty = Number.parseFloat(d.qty);
-                          // giá vốn chưa có trong detail — hiển thị placeholder
-                          return (
-                            <tr
-                              key={d.id}
-                              className="border-b border-border/40 hover:bg-muted/30"
-                            >
-                              <td className="px-2 py-1.5 text-center text-muted-foreground">
-                                {i + 1}
-                              </td>
-                              <td className="px-2 py-1.5 font-medium text-primary">
-                                {d.item.sku}
-                              </td>
-                              <td className="px-2 py-1.5">{d.item.name}</td>
-                              <td className="px-2 py-1.5">{d.item.unit}</td>
-                              <td className="px-2 py-1.5 text-right font-mono">
-                                {qty.toLocaleString("vi-VN")}
-                              </td>
-                              {d.item.itemType === "GOODS" ? (
-                                <>
-                                  <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
-                                    —
-                                  </td>
-                                  <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
-                                    —
-                                  </td>
-                                </>
-                              ) : (
-                                <td
-                                  className="px-2 py-1.5 text-muted-foreground text-center"
-                                  colSpan={2}
-                                >
-                                  Dịch vụ / không theo dõi kho
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              Chọn một chứng từ để xem chi tiết
-            </div>
-          )}
+          {detailPanelContent}
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

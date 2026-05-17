@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   RefreshCw,
@@ -43,9 +43,9 @@ function fmtDate(iso: string | null | undefined): string {
 function debtStatus(overdueDays: number): { label: string; cls: string } {
   if (overdueDays <= 0) return { label: "Chưa đến hạn", cls: "text-green-600" };
   if (overdueDays <= 90)
-    return { label: "Nợ bình thường", cls: "text-foreground" };
+    return { label: "Nợ quá hạn", cls: "text-amber-600 font-medium" };
   if (overdueDays <= 360)
-    return { label: "Nợ khó trả", cls: "text-amber-600 font-medium" };
+    return { label: "Nợ khó trả", cls: "text-orange-600 font-medium" };
   return { label: "Nợ lâu năm", cls: "text-destructive font-medium" };
 }
 
@@ -144,6 +144,14 @@ function InvoiceDetailTable({
     (s, i) => s + (Number.parseFloat(i.grandTotal) || 0),
     0,
   );
+  const totalPaid = invoices.reduce(
+    (s, i) => s + (Number.parseFloat(i.paidAmount) || 0),
+    0,
+  );
+  const totalRemaining = invoices.reduce(
+    (s, i) => s + (Number.parseFloat(i.remaining) || 0),
+    0,
+  );
   return (
     <div className="overflow-auto rounded-lg border">
       <table
@@ -192,7 +200,9 @@ function InvoiceDetailTable({
         </thead>
         <tbody>
           {invoices.map((inv, i) => {
-            const amount = Number.parseFloat(inv.grandTotal) || 0;
+            const grandTotal = Number.parseFloat(inv.grandTotal) || 0;
+            const paid = Number.parseFloat(inv.paidAmount) || 0;
+            const remaining = Number.parseFloat(inv.remaining) || 0;
             const status = debtStatus(inv.overdueDays);
             const bg = i % 2 === 0 ? "" : "bg-muted/20";
             return (
@@ -216,24 +226,24 @@ function InvoiceDetailTable({
                   {fmtDate(inv.dueDate)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
-                  {fmtVND(amount)}
+                  {fmtVND(grandTotal)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono text-xs border-r text-muted-foreground">
-                  0
+                  {fmtVND(paid)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
-                  {fmtVND(amount)}
+                  {fmtVND(grandTotal - paid)}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono text-xs border-r text-muted-foreground">
                   0
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono text-xs border-r font-semibold">
-                  {fmtVND(amount)}
+                  {fmtVND(remaining)}
                 </td>
                 <td
-                  className={`px-3 py-1.5 text-xs whitespace-nowrap ${status.cls}`}
+                  className={`px-3 py-1.5 text-xs whitespace-nowrap ${remaining === 0 ? "text-muted-foreground" : status.cls}`}
                 >
-                  {status.label}
+                  {remaining === 0 ? "Đã thanh toán" : status.label}
                 </td>
               </tr>
             );
@@ -247,13 +257,17 @@ function InvoiceDetailTable({
             <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
               {fmtVND(totalGrand)}
             </td>
-            <td className="px-3 py-1.5 text-right font-mono text-xs border-r"></td>
             <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
-              {fmtVND(totalGrand)}
+              {fmtVND(totalPaid)}
             </td>
-            <td className="px-3 py-1.5 text-right font-mono text-xs border-r"></td>
             <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
-              {fmtVND(totalGrand)}
+              {fmtVND(totalGrand - totalPaid)}
+            </td>
+            <td className="px-3 py-1.5 text-right font-mono text-xs border-r text-muted-foreground">
+              0
+            </td>
+            <td className="px-3 py-1.5 text-right font-mono text-xs border-r">
+              {fmtVND(totalRemaining)}
             </td>
             <td />
           </tr>
@@ -352,6 +366,7 @@ function DetailPanel({
 export default function APDebtsPage() {
   const { session } = useAuth();
   const token = session?.access_token ?? "";
+  const queryClient = useQueryClient();
 
   const [q, setQ] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -376,12 +391,22 @@ export default function APDebtsPage() {
     [q, dateFrom, dateTo, overdueOnly, page],
   );
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["ap-debts", filters, token],
     queryFn: () => api.apDebt.list(token, filters).then((r) => r.data),
     enabled: !!token,
     staleTime: 30_000,
   });
+
+  async function handleRefresh() {
+    await queryClient.invalidateQueries({ queryKey: ["ap-debts"] });
+    if (selectedRow) {
+      await queryClient.invalidateQueries({
+        queryKey: ["ap-debt-detail", selectedRow.supplierId],
+      });
+    }
+    await refetch();
+  }
 
   const rows: SupplierDebtRow[] = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -500,9 +525,14 @@ export default function APDebtsPage() {
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs gap-1.5"
-                  onClick={() => refetch()}
+                  onClick={handleRefresh}
+                  disabled={isFetching}
                 >
-                  <RefreshCw size={13} /> Làm mới
+                  <RefreshCw
+                    size={13}
+                    className={isFetching ? "animate-spin" : undefined}
+                  />
+                  Làm mới
                 </Button>
               </div>
             </div>
@@ -737,7 +767,7 @@ export default function APDebtsPage() {
           totalRemaining={Number.parseFloat(paymentDialogRow.remaining) || 0}
           token={token}
           onClose={() => setPaymentDialogRow(null)}
-          onSuccess={() => refetch()}
+          onSuccess={handleRefresh}
         />
       )}
     </>

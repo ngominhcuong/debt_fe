@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 
 interface PageToolbarProps {
   searchPlaceholder?: string;
+  searchValue?: string;
   onSearch?: (value: string) => void;
   onAdd?: () => void;
   addLabel?: string;
@@ -14,6 +15,8 @@ interface PageToolbarProps {
 
 export default function PageToolbar({
   searchPlaceholder = "Tìm kiếm...",
+  searchValue,
+  onSearch,
   onAdd,
   addLabel = "Thêm mới",
   onExport,
@@ -27,7 +30,12 @@ export default function PageToolbar({
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
-        <Input placeholder={searchPlaceholder} className="pl-9 h-9 text-sm" />
+        <Input
+          placeholder={searchPlaceholder}
+          className="pl-9 h-9 text-sm"
+          value={searchValue}
+          onChange={(e) => onSearch?.(e.target.value)}
+        />
       </div>
       {children}
       <div className="flex items-center gap-2 ml-auto">

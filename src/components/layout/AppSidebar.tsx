@@ -73,6 +73,11 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         icon: <Receipt size={18} />,
       },
       {
+        label: "Phiếu thu",
+        path: "/ar/receipts",
+        icon: <Receipt size={18} />,
+      },
+      {
         label: "Công nợ cần thu",
         path: "/ar/debts",
         icon: <AlertTriangle size={18} />,
@@ -86,6 +91,11 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         label: "Mua hàng",
         path: "/ap/invoices",
         icon: <ClipboardList size={18} />,
+      },
+      {
+        label: "Phiếu chi",
+        path: "/ap/payments",
+        icon: <Receipt size={18} />,
       },
       {
         label: "Công nợ phải trả",
@@ -158,7 +168,14 @@ export default function AppSidebar({ collapsed }: Readonly<AppSidebarProps>) {
     (g) => g.title !== "QUẢN TRỊ" || isChief,
   );
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === "/ar/receipts" || path === "/ap/payments") {
+      return (
+        location.pathname === path || location.pathname.startsWith(`${path}/`)
+      );
+    }
+    return location.pathname === path;
+  };
 
   const handleLogout = async () => {
     if (loggingOut) return;
