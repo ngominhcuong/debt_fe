@@ -89,6 +89,28 @@ function fmtDatetime(iso: string) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+function resolveEntityLink(log: VoucherAuditLog): string | null {
+  if (!log.entityId) return null;
+
+  const action = log.action.toUpperCase();
+  if (action.includes("RECEIPT")) {
+    return `/ar/receipts/${log.entityId}`;
+  }
+  if (action.includes("PAYMENT")) {
+    return `/ap/payments/${log.entityId}`;
+  }
+
+  const entityType = log.entityType.toLowerCase();
+  if (entityType.includes("receipt")) {
+    return `/ar/receipts/${log.entityId}`;
+  }
+  if (entityType.includes("payment")) {
+    return `/ap/payments/${log.entityId}`;
+  }
+
+  return `/sales/invoices/${log.entityId}`;
+}
+
 export default function AuditLogPage() {
   const { session } = useAuth();
   const token = session?.access_token ?? "";
@@ -170,58 +192,59 @@ export default function AuditLogPage() {
       </tr>
     );
   } else {
-    tableBody = rows.map((log) => (
-      <tr
-        key={log.id}
-        className="border-t border-border/50 hover:bg-secondary/20"
-      >
-        <td className="px-4 py-2.5 font-mono text-xs">
-          <div>{log.id}</div>
-          <div className="text-muted-foreground">
-            {fmtDatetime(log.createdAt)}
-          </div>
-        </td>
-        <td className="px-4 py-2.5">
-          <div className="font-medium">{log.userName ?? "—"}</div>
-          <div className="text-muted-foreground text-xs">
-            {log.userEmail ?? "—"}
-          </div>
-        </td>
-        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-          {log.userId ?? "—"}
-        </td>
-        <td className="px-4 py-2.5">
-          <span
-            className={`px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLOR[log.action] ?? "bg-muted text-muted-foreground"}`}
-          >
-            {ACTION_LABEL[log.action] ?? log.action}
-          </span>
-        </td>
-        <td className="px-4 py-2.5 text-xs text-muted-foreground">
-          {log.entityType}
-        </td>
-        <td className="px-4 py-2.5">
-          {log.entityId ? (
-            <Link
-              to={`/sales/invoices/${log.entityId}`}
-              className="text-primary hover:underline"
+    tableBody = rows.map((log) => {
+      const entityLink = resolveEntityLink(log);
+
+      return (
+        <tr
+          key={log.id}
+          className="border-t border-border/50 hover:bg-secondary/20"
+        >
+          <td className="px-4 py-2.5 font-mono text-xs">
+            <div>{log.id}</div>
+            <div className="text-muted-foreground">
+              {fmtDatetime(log.createdAt)}
+            </div>
+          </td>
+          <td className="px-4 py-2.5">
+            <div className="font-medium">{log.userName ?? "—"}</div>
+            <div className="text-muted-foreground text-xs">
+              {log.userEmail ?? "—"}
+            </div>
+          </td>
+          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+            {log.userId ?? "—"}
+          </td>
+          <td className="px-4 py-2.5">
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLOR[log.action] ?? "bg-muted text-muted-foreground"}`}
             >
-              {log.entityRef ?? log.entityId}
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">
-              {log.entityRef ?? "—"}
+              {ACTION_LABEL[log.action] ?? log.action}
             </span>
-          )}
-          <div className="text-xs text-muted-foreground font-mono mt-1">
-            {log.entityId ?? "—"}
-          </div>
-        </td>
-        <td className="px-4 py-2.5 text-muted-foreground">
-          {log.detail ?? "—"}
-        </td>
-      </tr>
-    ));
+          </td>
+          <td className="px-4 py-2.5 text-xs text-muted-foreground">
+            {log.entityType}
+          </td>
+          <td className="px-4 py-2.5">
+            {entityLink ? (
+              <Link to={entityLink} className="text-primary hover:underline">
+                {log.entityRef ?? log.entityId}
+              </Link>
+            ) : (
+              <span className="text-muted-foreground">
+                {log.entityRef ?? "—"}
+              </span>
+            )}
+            <div className="text-xs text-muted-foreground font-mono mt-1">
+              {log.entityId ?? "—"}
+            </div>
+          </td>
+          <td className="px-4 py-2.5 text-muted-foreground">
+            {log.detail ?? "—"}
+          </td>
+        </tr>
+      );
+    });
   }
 
   return (
