@@ -110,7 +110,7 @@ export default function APInvoiceUpsertPage() {
       .catch(() => undefined);
     api.master
       .listAccounts(token, { isActive: true })
-      .then((r) => setAccounts(r.data))
+      .then((r) => setAccounts(r.data.filter((a) => a.isPosting)))
       .catch(() => undefined);
   }, [token]);
 
@@ -739,6 +739,7 @@ export default function APInvoiceUpsertPage() {
                                       a.accountType === "ASSET" ||
                                       a.accountType === "EXPENSE",
                                   )
+                                  .filter((a) => a.isPosting)
                                   .map((a) => (
                                     <SelectItem key={a.id} value={a.id}>
                                       {a.code} — {a.name}
@@ -762,7 +763,11 @@ export default function APInvoiceUpsertPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 {accounts
-                                  .filter((a) => a.accountType === "LIABILITY")
+                                  .filter(
+                                    (a) =>
+                                      a.accountType === "LIABILITY" &&
+                                      a.isPosting,
+                                  )
                                   .map((a) => (
                                     <SelectItem key={a.id} value={a.id}>
                                       {a.code} — {a.name}

@@ -10,7 +10,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppLayout from "./components/layout/AppLayout";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLoadingScreen from "./components/shared/AppLoadingScreen";
 
 import LoginPage from "./pages/auth/LoginPage";
@@ -48,6 +48,7 @@ import SalesInvoicesPage from "./pages/sales/SalesInvoicesPage";
 import SalesInvoiceDetailPage from "./pages/sales/SalesInvoiceDetailPage";
 import ReconciliationPage from "./pages/reports/ReconciliationPage";
 import LedgerPage from "./pages/reports/LedgerPage";
+import AccountSummaryReportPage from "./pages/reports/AccountSummaryReportPage";
 import ManagementReportPage from "./pages/reports/ManagementReportPage";
 import AgingReportPage from "./pages/reports/AgingReportPage";
 import UsersPage from "./pages/admin/UsersPage";
@@ -209,6 +210,10 @@ const App = () => (
                   element={<ReconciliationPage />}
                 />
                 <Route path="/reports/ledger" element={<LedgerPage />} />
+                <Route
+                  path="/reports/account-summary"
+                  element={<AccountSummaryReportPage />}
+                />
                 <Route
                   path="/reports/management"
                   element={<ManagementReportPage />}

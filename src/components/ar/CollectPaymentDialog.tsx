@@ -358,7 +358,7 @@ export default function CollectPaymentDialog({
                           {idx + 1}
                         </td>
 
-                        {/* TK Nợ — chỉ hiển thị tài khoản tiền mặt/ngân hàng, mặc định 111* */}
+                        {/* TK Nợ — chỉ hiển thị tài khoản tiền mặt/ngân hàng chi tiết */}
                         <td className="px-2 py-1 min-w-[160px]">
                           <Select
                             value={line.debitAccountId}
@@ -383,7 +383,7 @@ export default function CollectPaymentDialog({
                           </Select>
                         </td>
 
-                        {/* TK Có — hiển thị toàn bộ tài khoản 131* để kế toán chọn */}
+                        {/* TK Có — chỉ hiển thị tài khoản phải thu chi tiết */}
                         <td className="px-2 py-1 min-w-[160px]">
                           <Select
                             value={line.creditAccountId}

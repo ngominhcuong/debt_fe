@@ -87,6 +87,10 @@ const pageMetaByPath: Record<string, { title: string; subtitle?: string }> = {
     title: "Sổ sách Kế toán",
     subtitle: "Tra cứu Sổ Cái & Sổ Chi tiết",
   },
+  "/reports/account-summary": {
+    title: "Sổ tổng hợp tài khoản",
+    subtitle: "Cộng dồn phát sinh từ tài khoản con",
+  },
   "/reports/management": {
     title: "Báo cáo Tổng hợp Công nợ",
     subtitle: "Tổng hợp phát sinh theo kỳ",

@@ -751,6 +751,28 @@ export interface LedgerResult {
   total: number;
 }
 
+export interface AccountSummaryRow {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  openingBalance: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+}
+
+export interface AccountSummaryResult {
+  account: { id: string; code: string; name: string; normalBalance: string };
+  rows: AccountSummaryRow[];
+  totals: {
+    openingBalance: number;
+    periodDebit: number;
+    periodCredit: number;
+    closingBalance: number;
+  };
+  total: number;
+}
+
 export interface ReconciliationMovement {
   accountingDate: string;
   accountCode: string;
@@ -1613,6 +1635,20 @@ export const api = {
       if (params.dateTo) p.set("dateTo", params.dateTo);
       return request<LedgerResult>(
         `/api/reports/ledger?${p.toString()}`,
+        {},
+        accessToken,
+      );
+    },
+
+    getAccountSummary: (
+      params: { accountId: string; dateFrom?: string; dateTo?: string },
+      accessToken: string,
+    ) => {
+      const p = new URLSearchParams({ accountId: params.accountId });
+      if (params.dateFrom) p.set("dateFrom", params.dateFrom);
+      if (params.dateTo) p.set("dateTo", params.dateTo);
+      return request<AccountSummaryResult>(
+        `/api/reports/account-summary?${p.toString()}`,
         {},
         accessToken,
       );

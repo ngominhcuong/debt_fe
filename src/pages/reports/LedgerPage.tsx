@@ -293,6 +293,7 @@ export default function LedgerPage() {
     staleTime: 120_000,
   });
   const allAccounts: Account[] = accountsQuery.data ?? [];
+  const postingAccounts = allAccounts.filter((a) => a.isPosting);
   const selectedAccount = allAccounts.find((a) => a.id === selectedAccountId);
 
   const ledgerQuery = useQuery({
@@ -326,7 +327,7 @@ export default function LedgerPage() {
       <div className="flex flex-wrap gap-3 items-end mb-4">
         <div className="flex-1 min-w-[260px]">
           <Label className="text-xs mb-1 block">
-            Tài khoản <span className="text-destructive">*</span>
+            Tài khoản chi tiết <span className="text-destructive">*</span>
           </Label>
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
             <PopoverTrigger asChild>
@@ -363,7 +364,7 @@ export default function LedgerPage() {
                 <CommandList>
                   <CommandEmpty>Không tìm thấy tài khoản.</CommandEmpty>
                   <CommandGroup>
-                    {allAccounts.slice(0, 200).map((a) => (
+                    {postingAccounts.slice(0, 200).map((a) => (
                       <CommandItem
                         key={a.id}
                         value={`${a.code} ${a.name}`}
@@ -454,7 +455,7 @@ export default function LedgerPage() {
       {!searched && (
         <div className="flex flex-col items-center justify-center text-muted-foreground py-16 text-sm gap-1">
           <ChevronLeft size={32} className="opacity-30" />
-          Chọn tài khoản và nhấn "Tra cứu" để xem sổ cái
+          Chọn tài khoản chi tiết và nhấn "Tra cứu" để xem sổ cái
         </div>
       )}
 

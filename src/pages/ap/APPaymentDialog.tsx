@@ -361,7 +361,7 @@ export default function APPaymentDialog({
                           {idx + 1}
                         </td>
 
-                        {/* TK Nợ — all accounts (accountant chooses freely) */}
+                        {/* TK Nợ — chỉ hiển thị tài khoản phải trả/đối ứng chi tiết */}
                         <td className="px-2 py-1 min-w-[160px]">
                           <Select
                             value={line.debitAccountId}
@@ -386,7 +386,7 @@ export default function APPaymentDialog({
                           </Select>
                         </td>
 
-                        {/* TK Có — cash/bank accounts (111/112) */}
+                        {/* TK Có — chỉ hiển thị tài khoản tiền mặt/ngân hàng chi tiết */}
                         <td className="px-2 py-1 min-w-[160px]">
                           <Select
                             value={line.creditAccountId}

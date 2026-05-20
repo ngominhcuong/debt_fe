@@ -118,6 +118,11 @@ const menuGroups: { title: string; items: MenuItem[] }[] = [
         icon: <BookOpen size={18} />,
       },
       {
+        label: "Sổ tổng hợp tài khoản",
+        path: "/reports/account-summary",
+        icon: <BookOpen size={18} />,
+      },
+      {
         label: "Báo cáo quản trị",
         path: "/reports/management",
         icon: <BarChart3 size={18} />,
